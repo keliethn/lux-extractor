@@ -1,0 +1,33 @@
+{
+  "name": "lux-extractor",
+  "version": "1.0.0",
+  "description": "A lambda function that get an api key from Airbnb and Vrbo and perform listing data extraction to be consumed by lux-server",
+  "main": "./dist/index",
+  "scripts": {
+    "start": "tsc && node ./dist/index",
+    "dev": "tsc && node ./dist/dev",
+    "zip": "tsc && 7z a -r lux-extractor.zip ./dist/*  node_modules/",
+    "sendToLambda": "npm run zip && aws lambda update-function-code --function-name lux-extractor --zip-file fileb://lux-extractor.zip"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/keliethn/lux-extractor.git"
+  },
+  "author": "Kelieth M. Navas",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/keliethn/lux-extractor/issues"
+  },
+  "homepage": "https://github.com/keliethn/lux-extractor#readme",
+  "dependencies": {
+    "aws-sdk": "^2.1261.0",
+    "axios": "^1.2.0",
+    "chrome-aws-lambda": "^10.1.0",
+    "playwright-core": "^1.28.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.9",
+    "playwright-chromium": "^1.28.1",
+    "typescript": "^4.9.3"
+  }
+}
