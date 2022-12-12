@@ -1,82 +1,71 @@
-export interface Listing {
-    unitId: string;
-    sessionId: string;
-    provider: string;
-    providerId:string;
-    requestId: string;
-    instance: string;
-    details: ListingExtractionDetails;
-    gallery: ListingExtractionGallery;
-    reviews: ListingExtractionReviews;
-    ambients: ListingExtractionAmbients;
+import { Listing } from "./classes";
+import { ListingSource, ElementToExtract } from "./enums";
+import { ListingAmbientExtraction, ListingCalendarExtraction, ListingExtractionDetails, ListingGalleryExtraction, ListingReviewExtraction, User, UserListing } from "./types";
+
+
+export interface ExtractionReq {
+  source: ListingSource;
+  sourceId: string;
+  sourceCount:number;
+  sourceData:{key:string,value:string}[];
+  element: ElementToExtract;
+  userId: string;
+  extractionId: string;
+  companyId: string;
 }
 
-export interface ListingExtractionDetails {
-    provider: DataSource,
-    providerId:string,
-    unitName:string,
-    maxOccupancy: number,
-    bedrooms: number,
-    beds: number,
-    baths: number,
-    costPerNight: number,
-    description: string
+export interface ExtractionRes {
+  extractionId: string;
+  userId: string;
+  source: ListingSource;
+  sourceId: string;
+  element: ElementToExtract;
+  details?: ListingExtractionDetails;
+  gallery?: ListingGalleryExtraction[];
+  reviews?: ListingReviewExtraction[];
+  ambients?: ListingAmbientExtraction[];
+  calendar?: ListingCalendarExtraction[];
+  userListings?:UserListing[];
+  user?:User;
+  vrboListing?: Listing;
 }
 
-export interface ListingExtractionGallery {
-    count: number,
-    provider: DataSource,
-    providerId:string,
-    userId:string,
-    images: ListingGalleryExtractionDto[]
+export interface RabbitMqEvent {
+  eventSource: string;
+  eventSourceArn: string;
+  rmqMessagesByQueue: rmqMessageQueue;
 }
 
-export interface ListingExtractionReviews {
-    count: number,
-    provider: DataSource,
-    providerId:string,
-    items: ListingReviewExtractionDto[]
+interface rmqMessageQueue {
+  [key: string]: rmqMessage[];
 }
 
-export interface ListingExtractionAmbients {
-    count: number,
-    provider: DataSource,
-    providerId:string,
-    items: ListingAmbientExtractionDto[]
+interface rmqMessage {
+  basicProperties: rmqMsgBasic;
+  redelivered: boolean;
+  data: string;
 }
 
-export type ListingGalleryExtractionDto = {
-    provider:DataSource,
-    providerId:string,
-    ambient?: string;
-    imageId?: string;
-    url?: string;
-    localId?: string;
-    cloudUrl?: string
-    caption?: string;
+interface rmqMsgBasic {
+  contentType: string;
+  contentEncoding: string | null;
+  headers: rmqMsgHeaders;
+  deliveryMode: number;
+  priority: number;
+  correlationId: string | null;
+  replyTo: string | null;
+  expiration: string;
+  messageId: string | null;
+  timestamp: string;
+  type: string | null;
+  userId: string;
+  appId: string | null;
+  clusterId: string | null;
+  bodySize: number;
 }
 
-export type ListingReviewExtractionDto={
-    provider:DataSource,
-    providerId:string,
-    reviewId:string;
-    title:string;
-    rating:number;
-    date?:Date
-    author?: string;
-    comment?: string;
-    response?:string;
-}
-
-export type ListingAmbientExtractionDto = {
-    provider:DataSource,
-    providerId:string,
-    name?: string;
-}
-
-export enum DataSource{
-    AirBnB="airbnb",
-    VRBO="vrbo",
-    NONE="none",
-    ANY="any"
+interface rmqMsgHeaders {
+  [key: string]: {
+    bytes: number[];
+  };
 }
