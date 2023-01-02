@@ -6,8 +6,19 @@ export type ListingExtractionDetails = {
   baths: number;
   costPerNight: number;
   description: string;
-  reviews?:number;
-  photos:ListingGalleryExtraction[]
+  reviews?: number;
+  photos: ListingGalleryExtraction[];
+};
+
+export type ListingExtractionHost = {
+  id:string;
+  firstName: string;
+  lastName:string;
+  pictureUrl: string;
+  thumbnailUrl:string;
+  createdAt:Date;
+  revieweeCount:number;
+  isSuperhost: boolean;
 };
 
 export type ListingGalleryExtraction = {
@@ -34,12 +45,21 @@ export type ListingAmbientExtraction = {
 
 export type ListingCalendarExtraction = {
   available: boolean;
-  date:Date;
+  date: Date;
 };
 
-export type AbnbListing={
-  listing:ListingData
-}
+export type ListingSearchExtraction = {
+  avgRating: number;
+  isNew:boolean;
+  coordinate: { latitude: number; longitude: number };
+  id: string;
+  name: string;
+  price: number;
+};
+
+export type AbnbListing = {
+  listing: ListingData;
+};
 
 export type ListingData = {
   id: number;
@@ -59,7 +79,19 @@ export type ListingData = {
   picture_count: number;
   description: string;
   photos: AbnbPhoto[];
+  primary_host:AbnbHost;
 };
+
+export type AbnbHost={
+  id: number;
+  first_name: string;
+  last_name:string;
+  picture_url: string;
+  thumbnail_url:string;
+  created_at:string;
+  reviewee_count:number;
+  is_superhost: boolean;
+}
 
 export type AbnbPhoto = {
   xl_picture: string;
@@ -67,7 +99,7 @@ export type AbnbPhoto = {
   thumbnail: string;
   caption: string;
   sort_order: number;
-  id:number;
+  id: number;
 };
 
 export type AbnbReviews = {

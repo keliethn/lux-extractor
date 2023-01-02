@@ -13,5 +13,6 @@ export enum ElementToExtract{
     details="details",
     gallery="gallery",
     calendar="calendar",
+    search="search",
     none="none"
 }

@@ -1,5 +1,5 @@
 import { chromium, Page } from "playwright-chromium";
-import { ExtractionReq, ExtractionRes, RabbitMqEvent } from "./interfaces";
+import { ExtractionReq, ExtractionRes, SQSEvent } from "./interfaces";
 import { ElementToExtract, ListingSource } from "./enums";
 import { vrboExtraction } from "./vrbo";
 import { abnbExtraction } from "./abnb";
@@ -10,15 +10,13 @@ import dotenv from "dotenv";
 import * as path from "path";
 import Broker, { sendToBackend } from "./amqp";
 
-const handler = async (event: RabbitMqEvent) => {
+const handler = async (event: SQSEvent) => {
   dotenv.config({
     path: path.join(__dirname, "./config.env"),
   });
 
   AWSSvc.init();
-  const extractionRequest = getExtractionRequest(
-    event.rmqMessagesByQueue["extractor::/"][0].data
-  );
+  const extractionRequest = getExtractionRequest(event);
 
   let extraction: ExtractionRes;
   if (extractionRequest.source === ListingSource.VRBO) {
@@ -32,6 +30,7 @@ const handler = async (event: RabbitMqEvent) => {
       // },
     });
     extraction = await vrboExtraction(browser, extractionRequest);
+    await browser.close();
   } else if (extractionRequest.source === ListingSource.AirBnB) {
     const browser = await chromium.launch({
       //headless: false,
@@ -42,56 +41,47 @@ const handler = async (event: RabbitMqEvent) => {
       //   password: "bUQDwQFlDCnWGPqqVJF1",
       // },
     });
-    extraction = await abnbExtraction(browser,extractionRequest);
+    extraction = await abnbExtraction(browser, extractionRequest);
+    await browser.close();
   }
 
+  // await  sendToBackend(extraction);
 
-  sendToBackend(extraction).then((x) => {
-    console.log("Send to backend: ", x);
-  });
+  console.log(JSON.stringify(extraction))
+  // console.log("Send to backend");
+  return extraction;
+  //process.exit(0)
+  // sendToBackend(extraction).then((x) => {
+  //   console.log("Send to backend: ", x);
+  // });
 };
 // TEST
 
 const data: ExtractionReq = {
   source: ListingSource.AirBnB,
-  sourceId: "15410003",
+  sourceId: "Hacienda-Iguana--Tola--Nicaragua",
   sourceCount: 0,
   sourceData: [],
-  element: ElementToExtract.details,
+  element: ElementToExtract.search,
   userId: "2222222222",
   extractionId: "1111111111",
   companyId: "0000000000",
 };
 
-const testObj: RabbitMqEvent = {
-  eventSourceArn:
-    "arn:aws:mq:us-east-1:107072109140:broker:lux-bcknd-extractor:b-bb2de43d-024b-413e-b11c-5a9b3312144f",
-  rmqMessagesByQueue: {
-    "extractor::/": [
-      {
-        basicProperties: {
-          contentType: null,
-          contentEncoding: null,
-          headers: {},
-          deliveryMode: 2,
-          priority: null,
-          correlationId: null,
-          replyTo: null,
-          expiration: null,
-          messageId: null,
-          timestamp: null,
-          type: null,
-          userId: null,
-          appId: null,
-          clusterId: null,
-          bodySize: 149,
-        },
-        redelivered: false,
-        data: objToBase64(data),
-      },
-    ],
-  },
-  eventSource: "aws:rmq",
+const testObj: SQSEvent = {
+  Records:[
+    {
+      messageId: 'ce7112da-9556-4eb8-9d36-128facd20606',
+      receiptHandle: 'AQEBuqohnmyZmAvL3K7zcs3H28JWAygfCqUDB4YKLZGqvFOWDG2FcF0M67o3L3SPdoVIUkAuzpz7MMg0xk49O0QelNLqWCDWT8xIlIDGvGqzIJw5z5JxeW7j8QMMhXc5a0ZEQCwDWAIF8FgRTJxWg1/PY4eM12iZmp/7WRD3b5cG+iiDO3C0UQoLbKeVcNZPzBJLjfYx3YNBGQOSg4VDDrTsaRfT1fguDhoIXQ1fVo7dc0A3sT+O/1R1W9CzTcmk6WsbqKAwaJpZnlEHVIAR0bacBOE6lbf60lrRAK3cjtQmF/9PdmVWwCx1cbtqXjztK6cG2zovW9sE4vXq1SH8asUh6n/8530/febN4o67jqRZeuqAnwOeJ9sScWFo6FUnSXLm',
+      body: JSON.stringify(data),
+      attributes: [],
+      messageAttributes: {},
+      md5OfBody: 'ded61807bacc566530c2f86cb85cd47a',
+      eventSource: 'aws:sqs',
+      eventSourceARN: 'arn:aws:sqs:us-east-1:107072109140:extractor',
+      awsRegion: 'us-east-1'
+    }
+  ]
 };
 
 handler(testObj);

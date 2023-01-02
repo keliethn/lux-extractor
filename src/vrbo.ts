@@ -124,10 +124,10 @@ export const vrboExtraction = async (
 
 const getElementText = async (page: Page): Promise<string | null> => {
   return new Promise(async (resolve, reject) => {
-    let elements = await page.$$("script:not([type]):not([src]):not([async])");
+    let elements = await page.locator("script:not([type]):not([src]):not([async])").allTextContents();
     for (const element of elements) {
-      let textContent = await element.textContent();
-      let elementText = textContent && textContent.trim();
+      //let textContent = await element.textContent();
+      let elementText = element && element.trim();
 
       let stringMatch =
         elementText &&

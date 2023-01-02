@@ -1,13 +1,22 @@
 import { Listing } from "./classes";
 import { ListingSource, ElementToExtract } from "./enums";
-import { ListingAmbientExtraction, ListingCalendarExtraction, ListingExtractionDetails, ListingGalleryExtraction, ListingReviewExtraction, User, UserListing } from "./types";
-
+import {
+  ListingAmbientExtraction,
+  ListingCalendarExtraction,
+  ListingExtractionDetails,
+  ListingExtractionHost,
+  ListingGalleryExtraction,
+  ListingReviewExtraction,
+  ListingSearchExtraction,
+  User,
+  UserListing,
+} from "./types";
 
 export interface ExtractionReq {
   source: ListingSource;
   sourceId: string;
-  sourceCount:number;
-  sourceData:{key:string,value:string}[];
+  sourceCount: number;
+  sourceData: { key: string; value: string }[];
   element: ElementToExtract;
   userId: string;
   extractionId: string;
@@ -21,51 +30,124 @@ export interface ExtractionRes {
   sourceId: string;
   element: ElementToExtract;
   details?: ListingExtractionDetails;
+  host?:ListingExtractionHost;
   gallery?: ListingGalleryExtraction[];
   reviews?: ListingReviewExtraction[];
   ambients?: ListingAmbientExtraction[];
   calendar?: ListingCalendarExtraction[];
-  userListings?:UserListing[];
-  user?:User;
+  search?: ListingSearchExtraction[];
+  userListings?: UserListing[];
+  user?: User;
   vrboListing?: Listing;
 }
 
-export interface RabbitMqEvent {
-  eventSource: string;
-  eventSourceArn: string;
-  rmqMessagesByQueue: rmqMessageQueue;
+export interface SQSEvent {
+  Records:sqsMessage[];
 }
 
-interface rmqMessageQueue {
-  [key: string]: rmqMessage[];
+
+
+interface sqsMessage {
+  messageId: string,
+  receiptHandle: string,
+  body: string,
+  attributes: object[],
+  messageAttributes: {},
+  md5OfBody: string,
+  eventSource: string,
+  eventSourceARN: string,
+  awsRegion: string
 }
 
-interface rmqMessage {
-  basicProperties: rmqMsgBasic;
-  redelivered: boolean;
-  data: string;
+
+
+export interface SearchResponseInitialState {
+  niobeMinimalClientData: [string, object][]; //SearResponse Type... look for index 1
 }
 
-interface rmqMsgBasic {
-  contentType: string;
-  contentEncoding: string | null;
-  headers: rmqMsgHeaders;
-  deliveryMode: number;
-  priority: number;
-  correlationId: string | null;
-  replyTo: string | null;
-  expiration: string;
-  messageId: string | null;
-  timestamp: string;
-  type: string | null;
-  userId: string;
-  appId: string | null;
-  clusterId: string | null;
-  bodySize: number;
-}
-
-interface rmqMsgHeaders {
-  [key: string]: {
-    bytes: number[];
+export interface SearchResponse {
+  data: {
+    presentation: {
+      explore: {
+        sections: {
+          sectionIndependentData: {
+            staysSearch: {
+              searchResults: StayResultItem[];
+              paginationInfo: {
+                pageCursors: string[];
+              };
+            };
+          };
+        };
+      };
+    };
   };
 }
+
+export interface StayResultItem {
+  listing: {
+    avgRatingLocalized: string;
+    coordinate: {
+      latitude: number;
+      longitude: number;
+    };
+    id: string;
+    name: string;
+  };
+  pricingQuote: {
+    structuredStayDisplayPrice: {
+      primaryLine: {
+        price: string;
+        discountedPrice:string;
+        originalPrice:string;
+      };
+    };
+  };
+}
+
+export interface AbnbSearchRequest {
+  operationName: string; //StaysSearch
+  variables: {
+    isInitialLoad: boolean; //true
+    hasLoggedIn: boolean; //false
+    cdnCacheSafe: boolean; //false
+    source: string; // EXPLORE
+    staysSearchRequest: {
+      requestedPageType: string; // STAYS_SEARCH
+      cursor: string;
+      metadataOnly: boolean; //false
+      searchType: string; // unknown
+      treatmentFlags: string[];
+      rawParams: { filterName: string; filterValues: string[] }[];
+    };
+    staysSearchM3Enabled: boolean; //false
+    staysSearchM6Enabled: boolean; //false
+    feedMapDecoupleEnabled: boolean; //false
+  };
+  extensions: {
+    persistedQuery: {
+      version: number;
+      sha256Hash: string;
+    };
+  };
+}
+
+
+export interface SearchCursor {
+  section_offset:number; //0
+  items_offset:number; //0
+  version:number; //1
+  }
+
+  export interface SearchQueryString {
+      tab_id: string;
+      query: string;
+      place_id: string;
+      price_filter_input_type: string;
+      price_filter_num_nights:string;
+      federated_search_session_id: string;
+      search_type: string;
+      pagination_search: string;
+      cursor: string
+        
+  }
