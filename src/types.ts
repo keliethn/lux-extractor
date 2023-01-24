@@ -14,6 +14,9 @@ export type ListingExtractionHost = {
   id:string;
   firstName: string;
   lastName:string;
+  about:string;
+  listingsCount: number;
+  totalListingsCount: number;
   pictureUrl: string;
   thumbnailUrl:string;
   createdAt:Date;

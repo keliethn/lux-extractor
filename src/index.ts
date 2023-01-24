@@ -6,7 +6,6 @@ import { vrboExtraction } from "./vrbo";
 import { abnbExtraction } from "./abnb";
 import { getExtractionRequest } from "./fn";
 import AWSSvc from "./s3";
-import { sendToBackend } from "./amqp";
 import * as aws from "@aws-sdk/client-sqs"
 
 exports.handler = async (event: SQSEvent) => {

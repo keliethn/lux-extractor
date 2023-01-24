@@ -26,6 +26,7 @@ export interface ExtractionReq {
 export interface ExtractionRes {
   extractionId: string;
   userId: string;
+  companyId: string;
   source: ListingSource;
   sourceId: string;
   element: ElementToExtract;

@@ -95,9 +95,23 @@ const abnbUser = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
+    companyId:req.companyId
   };
   let usr = await getUser(api, parseInt(req.sourceId));
-  response.user = usr.user;
+  response.host = {
+    id: usr.user.id.toString(),
+    firstName: usr.user.first_name,
+    lastName: "",
+    about: usr.user.about,
+    listingsCount: usr.user.listings_count,
+    totalListingsCount: usr.user.total_listings_count,
+    pictureUrl: usr.user.picture_url,
+    thumbnailUrl: usr.user.thumbnail_url,
+    createdAt: DateTime.fromISO(usr.user.created_at).toJSDate(),
+    revieweeCount: usr.user.reviewee_count,
+    isSuperhost: true,
+  };
+
   return response;
 };
 
@@ -111,6 +125,7 @@ const abnbMultipleListing = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
+    companyId:req.companyId
   };
   let units = await getListings(api, parseInt(req.sourceId), req.sourceCount);
   response.userListings = units.user_promo_listings;
@@ -128,13 +143,18 @@ const abnbDetails = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
+    companyId:req.companyId
   };
   let unit = await getListing(api, parseInt(req.sourceId));
+  let usr = await getUser(api, unit.listing.primary_host.id);
 
   response.host = {
-    id:unit.listing.primary_host.id.toString(),
+    id: unit.listing.primary_host.id.toString(),
     firstName: unit.listing.primary_host.first_name,
     lastName: unit.listing.primary_host.last_name,
+    about: usr.user.about,
+    listingsCount: usr.user.listings_count,
+    totalListingsCount: usr.user.total_listings_count,
     pictureUrl: unit.listing.primary_host.picture_url,
     thumbnailUrl: unit.listing.primary_host.thumbnail_url,
     createdAt: DateTime.fromISO(
@@ -177,6 +197,7 @@ const abnbReviews = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
+    companyId:req.companyId
   };
 
   let reviews = await getReviews(api, parseInt(req.sourceId), req.sourceCount);
@@ -206,6 +227,7 @@ const abnbCalendar = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
+    companyId:req.companyId
   };
 
   let dateStart = DateTime.now().setZone(process.env.timezone);
@@ -238,6 +260,7 @@ const abnbGallery = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
+    companyId:req.companyId
   };
 
   let gallery = await saveRemoteImagesToS3(
@@ -262,6 +285,7 @@ const abnbSearch = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
+    companyId:req.companyId
   };
 
   const starterBtnSelector = "a[aria-label='Next']";

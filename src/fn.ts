@@ -11,35 +11,33 @@ import {
 } from "./types";
 import urlencode from "urlencode";
 import sharp from "sharp";
-import { S3 } from "aws-sdk";
 import AWSSvc from "./s3";
-import { ManagedUpload } from "aws-sdk/clients/s3";
 import { APIRequestContext } from "playwright-chromium";
 import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
 
-const axiosExtractorInstance = axios.create({
-  responseType: "json",
-  headers: {
-    "X-Airbnb-API-Key": "d306zoyjsyarp7ifhu67rjxn52tv0t20",
-    "cache-control": "no-cache",
-    "user-agent": "Airbnb/17.50 iPad/11.2.1 Type/Tablet",
-    "content-type": "application/json",
-    accept: "application/json",
-    "accept-encoding": "br, gzip, deflate",
-    "accept-language": "en-us",
-    "x-airbnb-locale": "en",
-    "x-airbnb-currency": "USD",
-  },
-  proxy: {
-    protocol: "http",
-    host: "x.botproxy.net",
-    port: 8080,
-    auth: {
-      username: "pxu29513-0",
-      password: "bUQDwQFlDCnWGPqqVJF1",
-    },
-  },
-});
+// const axiosExtractorInstance = axios.create({
+//   responseType: "json",
+//   headers: {
+//     "X-Airbnb-API-Key": "d306zoyjsyarp7ifhu67rjxn52tv0t20",
+//     "cache-control": "no-cache",
+//     "user-agent": "Airbnb/17.50 iPad/11.2.1 Type/Tablet",
+//     "content-type": "application/json",
+//     accept: "application/json",
+//     "accept-encoding": "br, gzip, deflate",
+//     "accept-language": "en-us",
+//     "x-airbnb-locale": "en",
+//     "x-airbnb-currency": "USD",
+//   },
+//   proxy: {
+//     protocol: "http",
+//     host: "x.botproxy.net",
+//     port: 8080,
+//     auth: {
+//       username: "pxu29513-0",
+//       password: "bUQDwQFlDCnWGPqqVJF1",
+//     },
+//   },
+// });
 
 export const getExtractionRequest = (event: SQSEvent) => {
   let response: ExtractionReq;

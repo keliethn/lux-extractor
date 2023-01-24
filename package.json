@@ -22,8 +22,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.241.0",
     "@aws-sdk/client-sqs": "^3.241.0",
-    "amqplib": "^0.10.3",
-    "aws-sdk": "^2.1267.0",
     "axios": "^1.2.0",
     "chrome-aws-lambda": "^10.1.0",
     "dotenv": "^16.0.3",
@@ -34,7 +32,6 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.0",
     "@types/luxon": "^3.1.0",
     "@types/node": "^18.11.9",
     "@types/sharp": "^0.31.0",

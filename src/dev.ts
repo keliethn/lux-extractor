@@ -8,7 +8,6 @@ import { getExtractionRequest, objToBase64 } from "./fn";
 import AWSSvc from "./s3";
 import dotenv from "dotenv";
 import * as path from "path";
-import Broker, { sendToBackend } from "./amqp";
 
 const handler = async (event: SQSEvent) => {
   dotenv.config({
