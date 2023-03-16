@@ -16,3 +16,11 @@ export enum ElementToExtract{
     search="search",
     none="none"
 }
+
+export enum LocationGeoLevel{
+    State_Province_Department,
+    County_Municiple,
+    Community,
+    Place,
+    Country
+}

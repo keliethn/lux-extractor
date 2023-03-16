@@ -9,7 +9,6 @@ import {
   ListingReviewExtraction,
   ListingSearchExtraction,
   User,
-  UserListing,
 } from "./types";
 
 export interface ExtractionReq {
@@ -29,6 +28,7 @@ export interface ExtractionRes {
   companyId: string;
   source: ListingSource;
   sourceId: string;
+  reference?:string;
   element: ElementToExtract;
   details?: ListingExtractionDetails;
   host?:ListingExtractionHost;
@@ -37,7 +37,7 @@ export interface ExtractionRes {
   ambients?: ListingAmbientExtraction[];
   calendar?: ListingCalendarExtraction[];
   search?: ListingSearchExtraction[];
-  userListings?: UserListing[];
+  userListings?: ListingExtractionDetails[];
   user?: User;
   vrboListing?: Listing;
 }
@@ -66,7 +66,7 @@ export interface SearchResponseInitialState {
   niobeMinimalClientData: [string, object][]; //SearResponse Type... look for index 1
 }
 
-export interface SearchResponse {
+export interface AbnbSearchResponse {
   data: {
     presentation: {
       explore: {
@@ -83,6 +83,23 @@ export interface SearchResponse {
       };
     };
   };
+}
+
+export interface VrboSearchResponse{
+results:{
+  resultCount:number;
+  page:number;
+  pageSize:number;
+  pageCount:number;
+  listings:{
+    averageRating: number;
+    geoCode: { latitude: number; longitude: number };
+    propertyId: string;
+    listingId:string;
+    propertyMetadata: {headline:string};
+    prices: {perNight:{amount:number}};
+  }[]
+}
 }
 
 export interface StayResultItem {
@@ -130,6 +147,39 @@ export interface AbnbSearchRequest {
       version: number;
       sha256Hash: string;
     };
+  };
+}
+
+export interface VrboSearchRequest {
+  operationName: string; //StaysSearch
+  query:string;
+  variables: {
+    filterCounts:boolean; //false
+    optimizedBreadcrumb:boolean; //false
+    request:{
+      coreFilters:{
+        maxBathrooms?:number;
+        maxBedrooms?:number;
+        maxNightlyPrice?:number;
+        maxTotalPrice?:number;
+        minBathrooms:number;
+        minBedrooms:number;
+        minNightlyPrice:number;
+        minTotalPrice?:number;
+        pets:number
+      },
+      filters:string[],
+      filterVersion:string
+      paging:{
+        page:number;
+        pageSize:number;
+      }
+      q:string;
+    }
+    vrbo_web_global_messaging_banner:boolean;
+  };
+  extensions: {
+    isPageLoadSearch:boolean
   };
 }
 

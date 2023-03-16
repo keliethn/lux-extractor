@@ -7,6 +7,8 @@ export type ListingExtractionDetails = {
   costPerNight: number;
   description: string;
   reviews?: number;
+  lat: number;
+  lng: number;
   photos: ListingGalleryExtraction[];
 };
 
@@ -56,15 +58,20 @@ export type ListingSearchExtraction = {
   isNew:boolean;
   coordinate: { latitude: number; longitude: number };
   id: string;
+  ref?:string;
   name: string;
   price: number;
 };
 
 export type AbnbListing = {
-  listing: ListingData;
+  listing: AbnbListingData;
 };
 
-export type ListingData = {
+export type VrboListing = {
+  listing: VrboListingData;
+};
+
+export type AbnbListingData = {
   id: number;
   city: string;
   user_id: number;
@@ -85,6 +92,25 @@ export type ListingData = {
   primary_host:AbnbHost;
 };
 
+export type VrboListingData = {
+  id: number;
+  city: string;
+  price: number;
+  lat: number;
+  lng: number;
+  country: string;
+  name: string;
+  bathrooms: number;
+  bedrooms: number;
+  beds: number;
+  min_nights: number;
+  person_capacity: number;
+  reviews_count: number;
+  picture_count: number;
+  description: string;
+  photos: VrboPhoto[];
+};
+
 export type AbnbHost={
   id: number;
   first_name: string;
@@ -103,6 +129,15 @@ export type AbnbPhoto = {
   caption: string;
   sort_order: number;
   id: number;
+};
+
+export type VrboPhoto = {
+  caption?:string;
+  height:number;
+  note?:string;
+  uri:string;
+  width:number;
+  altText?:string;
 };
 
 export type AbnbReviews = {
@@ -137,6 +172,12 @@ export type AbnbAvalibility = {
   };
 };
 
+export type VrboAvalibility = {
+  calendar: {
+    days: Day[];
+  };
+};
+
 export type Day = {
   available: boolean;
   date: string;
@@ -164,6 +205,8 @@ export type UserListing = {
   picture_url: string;
   nightly_price_as_guest: string;
   guest_currency: string;
+  lat: number;
+  lng: number;
 };
 
 export type User = {

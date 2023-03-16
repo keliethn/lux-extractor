@@ -1,13 +1,14 @@
-import { chromium, Page } from "playwright-chromium";
+import "reflect-metadata";
+import { chromium } from "playwright-chromium";
 import { ExtractionReq, ExtractionRes, SQSEvent } from "./interfaces";
 import { ElementToExtract, ListingSource } from "./enums";
 import { vrboExtraction } from "./vrbo";
 import { abnbExtraction } from "./abnb";
-import { getExtractionRequest, objToBase64 } from "./fn";
-// import { mq } from "./amqp";
+import { getExtractionRequest } from "./fn";
 import AWSSvc from "./s3";
 import dotenv from "dotenv";
 import * as path from "path";
+import { AppDataSource } from "./database";
 
 const handler = async (event: SQSEvent) => {
   dotenv.config({
@@ -16,7 +17,8 @@ const handler = async (event: SQSEvent) => {
 
   AWSSvc.init();
   const extractionRequest = getExtractionRequest(event);
-
+  const dataSource=await AppDataSource.initialize();
+   
   let extraction: ExtractionRes;
   if (extractionRequest.source === ListingSource.VRBO) {
     const browser = await chromium.launch({
@@ -28,7 +30,7 @@ const handler = async (event: SQSEvent) => {
       //   password: "bUQDwQFlDCnWGPqqVJF1",
       // },
     });
-    extraction = await vrboExtraction(browser, extractionRequest);
+    extraction = await vrboExtraction(browser, extractionRequest,dataSource);
     await browser.close();
   } else if (extractionRequest.source === ListingSource.AirBnB) {
     const browser = await chromium.launch({
@@ -40,28 +42,21 @@ const handler = async (event: SQSEvent) => {
       //   password: "bUQDwQFlDCnWGPqqVJF1",
       // },
     });
-    extraction = await abnbExtraction(browser, extractionRequest);
+    extraction = await abnbExtraction(browser, extractionRequest,dataSource);
     await browser.close();
   }
 
-  // await  sendToBackend(extraction);
-
   console.log(JSON.stringify(extraction))
-  // console.log("Send to backend");
   return extraction;
-  //process.exit(0)
-  // sendToBackend(extraction).then((x) => {
-  //   console.log("Send to backend: ", x);
-  // });
+
 };
-// TEST
 
 const data: ExtractionReq = {
-  source: ListingSource.AirBnB,
-  sourceId: "Hacienda-Iguana--Tola--Nicaragua",
-  sourceCount: 0,
+  source: ListingSource.VRBO,
+  sourceId: "127.4442382.5027381", // vrbo details -> 4442382ha ||  vrbo others -> 127.4442382.5027381
+  sourceCount: 42,
   sourceData: [],
-  element: ElementToExtract.search,
+  element: ElementToExtract.user,
   userId: "2222222222",
   extractionId: "1111111111",
   companyId: "0000000000",

@@ -3,9 +3,10 @@ import {
   ExtractionReq,
   ExtractionRes,
   SearchQueryString,
-  SearchResponse,
+  AbnbSearchResponse,
 } from "./interfaces";
 import {
+  AbnbUser,
   ListingCalendarExtraction,
   ListingGalleryExtraction,
   ListingReviewExtraction,
@@ -13,20 +14,22 @@ import {
 } from "./types";
 import { ElementToExtract } from "./enums";
 import {
-  getAvailalibity,
-  getListing,
-  getListings,
-  getListingSearch,
-  getReviews,
-  getUser,
+  Abnb_getAvailalibity,
+  Abnb_getListing,
+  Abnb_getListings,
+  Abnb_getListingSearch,
+  Abnb_getReviews,
+  Abnb_getUser,
   saveRemoteImagesToS3,
 } from "./fn";
 import { DateTime } from "luxon";
 import { APIRequestContext, Browser, Page } from "playwright-chromium";
+import { DataSource } from "typeorm";
 
 export const abnbExtraction = async (
   browser: Browser,
-  req: ExtractionReq
+  req: ExtractionReq,
+  dataSource:DataSource
 ): Promise<ExtractionRes> => {
   return new Promise(async (resolve, reject) => {
     let response: ExtractionRes;
@@ -57,7 +60,7 @@ export const abnbExtraction = async (
           response = await abnbUser(api, req);
           break;
         case ElementToExtract.multipleListing:
-          response = await abnbMultipleListing(api, req);
+          response = await abnbMultipleListing(api, req,dataSource);
           break;
         case ElementToExtract.details:
           response = await abnbDetails(api, req);
@@ -73,6 +76,9 @@ export const abnbExtraction = async (
           break;
         case ElementToExtract.search:
           response = await abnbSearch(page, api, req);
+          break;
+        case ElementToExtract.singleListing:
+          response = await abnbSingleListing(api, req);
           break;
         default:
           break;
@@ -95,9 +101,9 @@ const abnbUser = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
-    companyId:req.companyId
+    companyId: req.companyId,
   };
-  let usr = await getUser(api, parseInt(req.sourceId));
+  let usr = await Abnb_getUser(api, req.sourceId);
   response.host = {
     id: usr.user.id.toString(),
     firstName: usr.user.first_name,
@@ -117,6 +123,25 @@ const abnbUser = async (
 
 const abnbMultipleListing = async (
   api: APIRequestContext,
+  req: ExtractionReq,
+  dataSource:DataSource
+): Promise<ExtractionRes> => {
+  let response: ExtractionRes = {
+    extractionId: req.extractionId,
+    source: req.source,
+    sourceId: req.sourceId,
+    userId: req.userId,
+    element: req.element,
+    companyId: req.companyId,
+  };
+  let listings = await Abnb_getListings(api, req.sourceId, req.sourceCount,dataSource);
+  response.userListings = listings;
+
+  return response;
+};
+
+const abnbSingleListing = async (
+  api: APIRequestContext,
   req: ExtractionReq
 ): Promise<ExtractionRes> => {
   let response: ExtractionRes = {
@@ -125,10 +150,107 @@ const abnbMultipleListing = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
-    companyId:req.companyId
+    companyId: req.companyId,
   };
-  let units = await getListings(api, parseInt(req.sourceId), req.sourceCount);
-  response.userListings = units.user_promo_listings;
+  //console.log(req.sourceId, req.source);
+
+  let unit = await Abnb_getListing(api, req.sourceId);
+  let usr: AbnbUser;
+  if (unit.listing !== undefined) {
+    usr = await Abnb_getUser(api, unit.listing.primary_host.id.toString());
+    response.host = {
+      id: unit.listing.primary_host.id.toString(),
+      firstName: unit.listing.primary_host.first_name,
+      lastName: unit.listing.primary_host.last_name,
+      about: usr.user.about,
+      listingsCount: usr.user.listings_count,
+      totalListingsCount: usr.user.total_listings_count,
+      pictureUrl: unit.listing.primary_host.picture_url,
+      thumbnailUrl: unit.listing.primary_host.thumbnail_url,
+      createdAt: DateTime.fromISO(
+        unit.listing.primary_host.created_at
+      ).toJSDate(),
+      revieweeCount: unit.listing.primary_host.reviewee_count,
+      isSuperhost: unit.listing.primary_host.is_superhost,
+    };
+
+    response.details = {
+      baths: unit.listing.bathrooms,
+      bedrooms: unit.listing.bedrooms,
+      beds: unit.listing.beds,
+      costPerNight: unit.listing.price,
+      maxOccupancy: unit.listing.person_capacity,
+      description: unit.listing.description,
+      title: unit.listing.name,
+      reviews: unit.listing.reviews_count,
+      lat:unit.listing.lat,
+      lng:unit.listing.lng,
+      photos: unit.listing.photos.map((x) => {
+        let response: ListingGalleryExtraction = {
+          imageId: x.id.toString(),
+          origin: x.xl_picture,
+          objectKey: "",
+          caption: x.caption,
+        };
+        return response;
+      }),
+    };
+
+    let reviews = await Abnb_getReviews(
+      api,
+      req.sourceId,
+      unit.listing.reviews_count
+    );
+
+    response.reviews = reviews.data.merlin.pdpReviews.reviews.map((review) => {
+      let response: ListingReviewExtraction = {
+        reviewId: review.id,
+        rating: review.rating,
+        date: DateTime.fromISO(review.createdAt).toJSDate(),
+        author: review.reviewer.firstName,
+        comment: review.comments,
+        response: review.response,
+      };
+      return response;
+    });
+
+    let dateStart = DateTime.now().setZone(process.env.timezone);
+    let dateEnd = dateStart.plus({ months: 12 });
+    let availability = await Abnb_getAvailalibity(
+      api,
+      req.sourceId,
+      dateStart.toFormat("yyyy-MM-dd"),
+      dateEnd.toFormat("yyyy-MM-dd")
+    );
+
+    if (availability.calendar !== undefined) {
+      response.calendar = availability.calendar.days.map((d) => {
+        let r: ListingCalendarExtraction = {
+          available: d.available,
+          date: DateTime.fromFormat(d.date, "yyyy-MM-dd").toJSDate(),
+        };
+        return r;
+      });
+    } else {
+      response.calendar = [];
+    }
+
+    let photos = unit.listing.photos.map((x) => {
+      let response = {
+        key: x.xl_picture,
+        value: x.caption,
+      };
+      return response;
+    });
+
+    let gallery = await saveRemoteImagesToS3(
+      api,
+      req.sourceId,
+      photos
+    );
+
+    response.gallery = gallery;
+  }
 
   return response;
 };
@@ -143,11 +265,11 @@ const abnbDetails = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
-    companyId:req.companyId
+    companyId: req.companyId,
   };
-  let unit = await getListing(api, parseInt(req.sourceId));
-  let usr = await getUser(api, unit.listing.primary_host.id);
-
+  let unit = await Abnb_getListing(api, req.sourceId);
+  let usr = await Abnb_getUser(api, unit.listing.primary_host.id.toString());
+  //console.log(unit.listing)
   response.host = {
     id: unit.listing.primary_host.id.toString(),
     firstName: unit.listing.primary_host.first_name,
@@ -173,6 +295,8 @@ const abnbDetails = async (
     description: unit.listing.description,
     title: unit.listing.name,
     reviews: unit.listing.reviews_count,
+    lat:unit.listing.lat,
+    lng:unit.listing.lng,
     photos: unit.listing.photos.map((x) => {
       let response: ListingGalleryExtraction = {
         imageId: x.id.toString(),
@@ -197,10 +321,10 @@ const abnbReviews = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
-    companyId:req.companyId
+    companyId: req.companyId,
   };
 
-  let reviews = await getReviews(api, parseInt(req.sourceId), req.sourceCount);
+  let reviews = await Abnb_getReviews(api, req.sourceId, req.sourceCount);
 
   response.reviews = reviews.data.merlin.pdpReviews.reviews.map((review) => {
     let response: ListingReviewExtraction = {
@@ -227,25 +351,29 @@ const abnbCalendar = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
-    companyId:req.companyId
+    companyId: req.companyId,
   };
 
   let dateStart = DateTime.now().setZone(process.env.timezone);
   let dateEnd = dateStart.plus({ months: req.sourceCount });
-  let availability = await getAvailalibity(
+  let availability = await Abnb_getAvailalibity(
     api,
-    parseInt(req.sourceId),
+    req.sourceId,
     dateStart.toFormat("yyyy-MM-dd"),
     dateEnd.toFormat("yyyy-MM-dd")
   );
 
-  response.calendar = availability.calendar.days.map((d) => {
-    let r: ListingCalendarExtraction = {
-      available: d.available,
-      date: DateTime.fromFormat(d.date, "yyyy-MM-dd").toJSDate(),
-    };
-    return r;
-  });
+  if (availability.calendar !== undefined) {
+    response.calendar = availability.calendar.days.map((d) => {
+      let r: ListingCalendarExtraction = {
+        available: d.available,
+        date: DateTime.fromFormat(d.date, "yyyy-MM-dd").toJSDate(),
+      };
+      return r;
+    });
+  } else {
+    response.calendar = [];
+  }
 
   return response;
 };
@@ -260,12 +388,12 @@ const abnbGallery = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
-    companyId:req.companyId
+    companyId: req.companyId,
   };
 
   let gallery = await saveRemoteImagesToS3(
     api,
-    parseInt(req.sourceId),
+    req.sourceId,
     req.sourceData
   );
 
@@ -285,7 +413,7 @@ const abnbSearch = async (
     sourceId: req.sourceId,
     userId: req.userId,
     element: req.element,
-    companyId:req.companyId
+    companyId: req.companyId,
   };
 
   const starterBtnSelector = "a[aria-label='Next']";
@@ -399,7 +527,7 @@ const getSha256HashAndCursors = (
         url.trim().indexOf("https://www.airbnb.com/api/v3/StaysSearch") > -1
       ) {
         r.body().then(async (b) => {
-          let obj = JSON.parse(b.toString()) as SearchResponse;
+          let obj = JSON.parse(b.toString()) as AbnbSearchResponse;
 
           resolve({
             success: true,
@@ -504,7 +632,7 @@ const getSearch = (
           },
         },
       };
-      let pageResults = await getListingSearch(api, newRequest);
+      let pageResults = await Abnb_getListingSearch(api, newRequest);
       if (pageResults.length > 0) {
         results.push.apply(results, pageResults);
       }
@@ -527,16 +655,16 @@ const getSearch = (
 //     userId: req.userId,
 //     Listings: [],
 //   };
-//   let selectedUser = await getUser(req.sourceId);
+//   let selectedUser = await Abnb_getUser(req.sourceId);
 
-//   let listings = await getListings(
+//   let listings = await Abnb_getListings(
 //     selectedUser.user.id,
 //     selectedUser.user.listings_count
 //   );
 
 //   for (const u of listings.user_promo_listings) {
-//     let unit = await getListing(u.id);
-//     let reviews = await getReviews(u.id, unit.listing.reviews_count);
+//     let unit = await Abnb_getListing(u.id);
+//     let reviews = await Abnb_getReviews(u.id, unit.listing.reviews_count);
 //     let gallery = await saveRemoteImagesToS3(unit.listing.photos);
 
 //     let listing = new Listing();
