@@ -8,14 +8,14 @@ import { abnbExtraction } from "./abnb";
 import { getExtractionRequest } from "./fn";
 import AWSSvc from "./s3";
 import * as aws from "@aws-sdk/client-sqs"
-import { AppDataSource } from "./database";
+
 
 exports.handler = async (event: SQSEvent) => {
   //console.log("start")
   AWSSvc.init();
   const sqs = new aws.SQS({ apiVersion: '2012-11-05' });
   const extractionRequest = getExtractionRequest(event);
-  const dataSource=await AppDataSource.initialize()
+ 
 
   let extraction: ExtractionRes;
   if (extractionRequest.source === ListingSource.VRBO) {
@@ -35,7 +35,7 @@ exports.handler = async (event: SQSEvent) => {
         password: "bUQDwQFlDCnWGPqqVJF1",
       },
     });
-    extraction = await vrboExtraction(browser, extractionRequest,dataSource);
+    extraction = await vrboExtraction(browser, extractionRequest);
     await browser.close();
   } else if (extractionRequest.source === ListingSource.AirBnB) {
     const browser = await chromium.launch({
@@ -54,7 +54,7 @@ exports.handler = async (event: SQSEvent) => {
       //   password: "bUQDwQFlDCnWGPqqVJF1",
       // },
     });
-    extraction = await abnbExtraction(browser,extractionRequest,dataSource);
+    extraction = await abnbExtraction(browser,extractionRequest);
     await browser.close();
   }
 

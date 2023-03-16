@@ -37,7 +37,7 @@ export interface ExtractionRes {
   ambients?: ListingAmbientExtraction[];
   calendar?: ListingCalendarExtraction[];
   search?: ListingSearchExtraction[];
-  userListings?: ListingExtractionDetails[];
+  userListings?: ListingSearchExtraction[];
   user?: User;
   vrboListing?: Listing;
 }

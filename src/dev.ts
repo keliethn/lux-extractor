@@ -8,7 +8,6 @@ import { getExtractionRequest } from "./fn";
 import AWSSvc from "./s3";
 import dotenv from "dotenv";
 import * as path from "path";
-import { AppDataSource } from "./database";
 
 const handler = async (event: SQSEvent) => {
   dotenv.config({
@@ -17,7 +16,7 @@ const handler = async (event: SQSEvent) => {
 
   AWSSvc.init();
   const extractionRequest = getExtractionRequest(event);
-  const dataSource=await AppDataSource.initialize();
+
    
   let extraction: ExtractionRes;
   if (extractionRequest.source === ListingSource.VRBO) {
@@ -30,7 +29,7 @@ const handler = async (event: SQSEvent) => {
       //   password: "bUQDwQFlDCnWGPqqVJF1",
       // },
     });
-    extraction = await vrboExtraction(browser, extractionRequest,dataSource);
+    extraction = await vrboExtraction(browser, extractionRequest);
     await browser.close();
   } else if (extractionRequest.source === ListingSource.AirBnB) {
     const browser = await chromium.launch({
@@ -42,7 +41,7 @@ const handler = async (event: SQSEvent) => {
       //   password: "bUQDwQFlDCnWGPqqVJF1",
       // },
     });
-    extraction = await abnbExtraction(browser, extractionRequest,dataSource);
+    extraction = await abnbExtraction(browser, extractionRequest);
     await browser.close();
   }
 

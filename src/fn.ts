@@ -27,10 +27,6 @@ import AWSSvc from "./s3";
 import { APIRequestContext, APIResponse } from "playwright-chromium";
 import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { Point } from "geojson";
-import { DataSource } from "typeorm";
-import { LocationGeoLevel } from "./enums";
-import { Location } from "./Location";
-import { IsPointInsideTargetCountry } from "./IsPointInsideTargetCountry";
 import { DateTime } from "luxon";
 
 // const axiosExtractorInstance = axios.create({
@@ -81,13 +77,13 @@ export const Abnb_getListing = async (
 export const Abnb_getListings = async (
   api: APIRequestContext,
   userId: string,
-  listingCount: number,
-  dataSource: DataSource
+  listingCount: number
+  //dataSource: DataSource
 ) => {
-  const repo = dataSource.getRepository(Location);
-  let countries = await repo.find({
-    where: { polygonGeoLevel: LocationGeoLevel.Country },
-  });
+  // const repo = dataSource.getRepository(Location);
+  // let countries = await repo.find({
+  //   where: { polygonGeoLevel: LocationGeoLevel.Country },
+  // });
 
   let resp = await api.get(
     `https://www.airbnb.com/api/v2/user_promo_listings?locale=en-US&currency=USD&_limit=${listingCount}&_offset=0&user_id=${userId}`,
@@ -103,41 +99,28 @@ export const Abnb_getListings = async (
 
   let listing = jsonBody as AbnbListingList;
 
-  let response: ListingExtractionDetails[] = [];
+  let response: ListingSearchExtraction[] = [];
 
   if (listing.user_promo_listings.length > 0) {
     for (const l of listing.user_promo_listings) {
       let unit = await Abnb_getListing(api, l.id.toString());
 
       if (unit !== null) {
-        let point: Point = {
-          type: "Point",
-          coordinates: [unit.listing.lat, unit.listing.lng],
+        // let point: Point = {
+        //   type: "Point",
+        //   coordinates: [unit.listing.lat, unit.listing.lng],
+        // };
+        // if (IsPointInsideTargetCountry(point, countries)) {
+        let details: ListingSearchExtraction = {
+          avgRating: 0,
+          isNew: false,
+          coordinate: { latitude: unit.listing.lat, longitude: unit.listing.lng },
+          id: String(unit.listing.id),
+          name: unit.listing.name,
+          price: unit.listing.price,
         };
-        if (IsPointInsideTargetCountry(point, countries)) {
-          let details = {
-            baths: unit.listing.bathrooms,
-            bedrooms: unit.listing.bedrooms,
-            beds: unit.listing.beds,
-            costPerNight: unit.listing.price,
-            maxOccupancy: unit.listing.person_capacity,
-            description: unit.listing.description,
-            title: unit.listing.name,
-            reviews: unit.listing.reviews_count,
-            lat: unit.listing.lat,
-            lng: unit.listing.lng,
-            photos: unit.listing.photos.map((x) => {
-              let response: ListingGalleryExtraction = {
-                imageId: x.id.toString(),
-                origin: x.xl_picture,
-                objectKey: "",
-                caption: x.caption,
-              };
-              return response;
-            }),
-          };
-          response.push(details);
-        }
+        response.push(details);
+        //  }
       }
     }
   }

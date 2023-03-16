@@ -1,11 +1,9 @@
 import { DateTime } from "luxon";
 import {
   APIRequestContext,
-  APIResponse,
   Browser,
   Page,
 } from "playwright-chromium";
-import { DataSource } from "typeorm";
 import { ElementToExtract } from "./enums";
 import {
   saveRemoteImagesToS3,
@@ -21,7 +19,7 @@ import { AbnbUser, ListingCalendarExtraction, ListingGalleryExtraction } from ".
 export const vrboExtraction = async (
   browser: Browser,
   req: ExtractionReq,
-  dataSource: DataSource
+ // dataSource: DataSource
 ): Promise<ExtractionRes> => {
   return new Promise(async (resolve, reject) => {
     let response: ExtractionRes;

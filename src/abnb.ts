@@ -24,12 +24,11 @@ import {
 } from "./fn";
 import { DateTime } from "luxon";
 import { APIRequestContext, Browser, Page } from "playwright-chromium";
-import { DataSource } from "typeorm";
 
 export const abnbExtraction = async (
   browser: Browser,
   req: ExtractionReq,
-  dataSource:DataSource
+  //dataSource:DataSource
 ): Promise<ExtractionRes> => {
   return new Promise(async (resolve, reject) => {
     let response: ExtractionRes;
@@ -60,7 +59,7 @@ export const abnbExtraction = async (
           response = await abnbUser(api, req);
           break;
         case ElementToExtract.multipleListing:
-          response = await abnbMultipleListing(api, req,dataSource);
+          response = await abnbMultipleListing(api, req);
           break;
         case ElementToExtract.details:
           response = await abnbDetails(api, req);
@@ -124,7 +123,7 @@ const abnbUser = async (
 const abnbMultipleListing = async (
   api: APIRequestContext,
   req: ExtractionReq,
-  dataSource:DataSource
+  //dataSource:DataSource
 ): Promise<ExtractionRes> => {
   let response: ExtractionRes = {
     extractionId: req.extractionId,
@@ -134,7 +133,7 @@ const abnbMultipleListing = async (
     element: req.element,
     companyId: req.companyId,
   };
-  let listings = await Abnb_getListings(api, req.sourceId, req.sourceCount,dataSource);
+  let listings = await Abnb_getListings(api, req.sourceId, req.sourceCount);
   response.userListings = listings;
 
   return response;
