@@ -1,32 +1,30 @@
 import axios from "axios";
 import {
-  AbnbSearchRequest,
-  ExtractionReq,
-  AbnbSearchResponse,
   SQSEvent,
+  ExtractionReq,
+  AbnbSearchRequest,
   VrboSearchRequest,
+  AbnbSearchResponse,
   VrboSearchResponse,
 } from "./interfaces";
 import {
-  AbnbAvalibility,
-  AbnbListing,
-  AbnbListingList,
-  AbnbReviews,
-  AbnbUser,
   Day,
-  ListingExtractionDetails,
-  ListingGalleryExtraction,
+  AbnbUser,
+  AbnbListing,
+  AbnbReviews,
+  VrboListing,
+  AbnbAvalibility,
+  AbnbListingList,
+  VrboAvalibility,
   ListingReviewExtraction,
   ListingSearchExtraction,
-  VrboAvalibility,
-  VrboListing,
+  ListingGalleryExtraction,
 } from "./types";
 import urlencode from "urlencode";
 import sharp from "sharp";
 import AWSSvc from "./s3";
 import { APIRequestContext, APIResponse } from "playwright-chromium";
 import { PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
-import { Point } from "geojson";
 import { DateTime } from "luxon";
 
 // const axiosExtractorInstance = axios.create({
