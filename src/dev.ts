@@ -52,10 +52,10 @@ const handler = async (event: SQSEvent) => {
 
 const data: ExtractionReq = {
   source: ListingSource.VRBO,
-  sourceId: "127.4442382.5027381", // vrbo details -> 4442382ha ||  vrbo others -> 127.4442382.5027381
-  sourceCount: 42,
+  sourceId: "guacalito-de-la-isla-tola-rivas-department-nicaragua", // vrbo details -> 4442382ha ||  vrbo others -> 127.4442382.5027381
+  sourceCount: 0,
   sourceData: [],
-  element: ElementToExtract.user,
+  element: ElementToExtract.search,
   userId: "2222222222",
   extractionId: "1111111111",
   companyId: "0000000000",

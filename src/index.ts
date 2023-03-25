@@ -1,22 +1,21 @@
 import "reflect-metadata";
+import AWSSvc from "./s3";
+import * as aws from "@aws-sdk/client-sqs"
 import { chromium } from "playwright-core";
 import awsChromium from "chrome-aws-lambda";
-import { ExtractionRes, SQSEvent } from "./interfaces";
 import { ListingSource } from "./enums";
 import { vrboExtraction } from "./vrbo";
 import { abnbExtraction } from "./abnb";
 import { getExtractionRequest } from "./fn";
-import AWSSvc from "./s3";
-import * as aws from "@aws-sdk/client-sqs"
-
+import { ExtractionRes, SQSEvent } from "./interfaces";
 
 exports.handler = async (event: SQSEvent) => {
-  //console.log("start")
   AWSSvc.init();
   const sqs = new aws.SQS({ apiVersion: '2012-11-05' });
   const extractionRequest = getExtractionRequest(event);
- 
 
+ console.log(extractionRequest)
+ 
   let extraction: ExtractionRes;
   if (extractionRequest.source === ListingSource.VRBO) {
     const browser = await chromium.launch({
@@ -63,6 +62,6 @@ exports.handler = async (event: SQSEvent) => {
 		QueueUrl: "https://sqs.us-east-1.amazonaws.com/107072109140/backend",
 	};
 	const result = await sqs.sendMessage(params);
-	console.log(result);
+  console.log("result sent back to backend");
 
 };

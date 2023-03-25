@@ -1,9 +1,5 @@
 import { DateTime } from "luxon";
-import {
-  APIRequestContext,
-  Browser,
-  Page,
-} from "playwright-chromium";
+import { APIRequestContext, Browser, Page } from "playwright-chromium";
 import { ElementToExtract } from "./enums";
 import {
   saveRemoteImagesToS3,
@@ -14,12 +10,16 @@ import {
   Vrbo_getUser,
 } from "./fn";
 import { ExtractionReq, ExtractionRes, VrboSearchRequest } from "./interfaces";
-import { AbnbUser, ListingCalendarExtraction, ListingGalleryExtraction } from "./types";
+import {
+  AbnbUser,
+  ListingCalendarExtraction,
+  ListingGalleryExtraction,
+} from "./types";
 
 export const vrboExtraction = async (
   browser: Browser,
-  req: ExtractionReq,
- // dataSource: DataSource
+  req: ExtractionReq
+  // dataSource: DataSource
 ): Promise<ExtractionRes> => {
   return new Promise(async (resolve, reject) => {
     let response: ExtractionRes;
@@ -33,7 +33,10 @@ export const vrboExtraction = async (
     // let sourceIdArray=req.sourceId.split('-');
     // const listingId=sourceIdArray[0];
     // const sourceId=sourceIdArray[1];
-    if (req.element === ElementToExtract.details || req.element===ElementToExtract.singleListing) {
+    if (
+      req.element === ElementToExtract.details ||
+      req.element === ElementToExtract.singleListing
+    ) {
       await page.goto(`https://www.vrbo.com/${req.sourceId}`, {
         timeout: 80000,
       });
@@ -45,9 +48,7 @@ export const vrboExtraction = async (
 
     // await page.waitForLoadState("networkidle");
     const api = context.request;
-
     try {
-     
       switch (req.element) {
         case ElementToExtract.user:
           response = await vrboUser(api, req);
@@ -57,7 +58,12 @@ export const vrboExtraction = async (
           let dobj = detailsObj && JSON.parse(detailsObj);
           let countReviewsDetails = dobj.reviewsReducer.reviewCount;
           let listingIdDetails = dobj.listingReducer.listingId;
-          response = await vrboDetails(api, req, listingIdDetails, countReviewsDetails);
+          response = await vrboDetails(
+            api,
+            req,
+            listingIdDetails,
+            countReviewsDetails
+          );
           break;
         case ElementToExtract.reviews:
           response = await vrboReviews(api, req);
@@ -73,10 +79,27 @@ export const vrboExtraction = async (
           break;
         case ElementToExtract.singleListing:
           let slObj = await getElementText(page);
-          let sobj = slObj && JSON.parse(slObj);
-          let countReviewsSl = sobj.reviewsReducer.reviewCount;
-          let listingIdSl = sobj.listingReducer.listingId;
-          response = await vrboSingleListing(api, req,listingIdSl, countReviewsSl);
+          if (slObj !== "") {
+            let sobj = slObj && JSON.parse(slObj);
+            let countReviewsSl = sobj.reviewsReducer.reviewCount;
+            let listingIdSl = sobj.listingReducer.listingId;
+            response = await vrboSingleListing(
+              api,
+              req,
+              listingIdSl,
+              countReviewsSl
+            );
+          } else {
+            response = {
+              extractionId: req.extractionId,
+              source: req.source,
+              sourceId: req.sourceId,
+              userId: req.userId,
+              element: req.element,
+              companyId: req.companyId
+            };
+          }
+
           break;
         default:
           break;
@@ -96,6 +119,7 @@ const getElementText = async (page: Page): Promise<string | null> => {
     let elements = await page
       .locator("script:not([type]):not([src]):not([async])")
       .allTextContents();
+    let obj = "";
     for (const element of elements) {
       //let textContent = await element.textContent();
       let elementText = element && element.trim();
@@ -104,11 +128,11 @@ const getElementText = async (page: Page): Promise<string | null> => {
         elementText &&
         elementText.substring(0, 51).match(/window.__INITIAL_STATE__/gm);
       if (stringMatch !== null) {
-        let obj =
+        obj =
           elementText && elementText.slice(27, elementText.length - 118).trim();
-        resolve(obj);
       }
     }
+    resolve(obj);
   });
 };
 
@@ -339,12 +363,11 @@ const vrboSingleListing = async (
     element: req.element,
     companyId: req.companyId,
   };
-
-
-  let unit = await Vrbo_getListing(api,listingId,reviewsCount);
+console.log("entra ")
+  let unit = await Vrbo_getListing(api, listingId, reviewsCount);
   let usr: AbnbUser;
   if (unit.listing !== undefined) {
-    usr = await Vrbo_getUser(api,listingId);
+    usr = await Vrbo_getUser(api, listingId);
     response.host = {
       id: "",
       firstName: usr.user.first_name,
@@ -354,9 +377,7 @@ const vrboSingleListing = async (
       totalListingsCount: 0,
       pictureUrl: "",
       thumbnailUrl: "",
-      createdAt: DateTime.fromISO(
-        usr.user.created_at
-      ).toJSDate(),
+      createdAt: DateTime.fromISO(usr.user.created_at).toJSDate(),
       revieweeCount: 0,
       isSuperhost: false,
     };
@@ -380,7 +401,7 @@ const vrboSingleListing = async (
           if (imgArrayItem !== null) {
             let imgId = imgArrayItem.split(".")[0];
             let url = x.uri.replace(imgArrayItem, imgId + ".jpg");
-  
+
             let img: ListingGalleryExtraction = {
               ambient: "",
               imageId: imgId,
@@ -388,7 +409,7 @@ const vrboSingleListing = async (
               objectKey: `${req.sourceId}-${imgId}.webp`,
               caption: x.caption === null ? "" : x.caption,
             };
-  
+
             return img;
           }
         }
@@ -408,18 +429,15 @@ const vrboSingleListing = async (
       unit.listing.reviews_count
     );
 
-    response.reviews = reviews
+    response.reviews = reviews;
 
-    let availability = await Vrbo_getAvailalibity(
-      api,
-      listingId,
-    );
+    let availability = await Vrbo_getAvailalibity(api, listingId);
 
     if (availability.calendar !== undefined) {
       response.calendar = availability.calendar.days.map((d) => {
         let r: ListingCalendarExtraction = {
           available: d.available,
-          date: DateTime.fromFormat(d.date, "yyyy-MM-dd").toJSDate(),
+          date: DateTime.fromISO(d.date).toJSDate(),
         };
         return r;
       });

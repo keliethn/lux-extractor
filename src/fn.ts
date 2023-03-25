@@ -112,7 +112,10 @@ export const Abnb_getListings = async (
         let details: ListingSearchExtraction = {
           avgRating: 0,
           isNew: false,
-          coordinate: { latitude: unit.listing.lat, longitude: unit.listing.lng },
+          coordinate: {
+            latitude: unit.listing.lat,
+            longitude: unit.listing.lng,
+          },
           id: String(unit.listing.id),
           name: unit.listing.name,
           price: unit.listing.price,
@@ -361,22 +364,27 @@ export const Vrbo_getReviews = async (
 
   let rawBody = await resp.body();
   let reviewsJson = JSON.parse(rawBody.toString());
+
+
   let reviews = reviewsJson.data.reviews;
 
-  let response = reviews.map((x) => {
-    let rev: ListingReviewExtraction = {
-      reviewId: x.uuid,
-      title: x.headline,
-      rating: x.rating,
-      date: x.datePublished,
-      author: x.reviewer.nickname,
-      comment: x.body,
-      response: x.response === null ? "" : x.response.body,
-    };
-    return rev;
-  });
+  let response: ListingReviewExtraction[] = [];
+  if (reviews !== null) {
+    response = reviews.map((x) => {
+      let rev: ListingReviewExtraction = {
+        reviewId: x.uuid,
+        title: x.headline,
+        rating: x.rating,
+        date: x.datePublished,
+        author: x.reviewer.nickname,
+        comment: x.body,
+        response: x.response === null ? "" : x.response.body,
+      };
+      return rev;
+    });
+  }
 
-  return response as ListingReviewExtraction[];
+  return response;
 };
 
 export const Vrbo_getAvailalibity = async (
@@ -422,20 +430,31 @@ export const Vrbo_getAvailalibity = async (
   );
 
   let dayList: Day[] = [];
-  for (const d of days) {
-    if (start <= end) {
-      let dy = start.toISO();
-      let currentDay: Day = {
-        date: dy,
-        available: d === "Y" ? true : false,
-      };
-
-      dayList.push(currentDay);
-      start = start.plus({ day: 1 });
-    } else {
-      break;
-    }
+  let arrayDate=start.minus({day:1});
+  for (let index = 1; index < 366; index++) {
+    let dy = arrayDate.plus({day:index}).toISO();
+    let d=days[index-1];
+    let currentDay: Day = {
+      date: dy,
+      available: d === "Y" ? true : false,
+    };
+   
+    dayList.push(currentDay);
   }
+  // for (const d of days) {
+  //   if (start <= end) {
+  //     let dy = start.toISO();
+  //     let currentDay: Day = {
+  //       date: dy,
+  //       available: d === "Y" ? true : false,
+  //     };
+
+  //     dayList.push(currentDay);
+  //     start = start.plus({ day: 1 });
+  //   } else {
+  //     break;
+  //   }
+  // }
 
   let response: VrboAvalibility = {
     calendar: { days: dayList },
@@ -476,7 +495,6 @@ export const Vrbo_getUser = async (
 
   let jsonBody = JSON.parse(rawBody.toString());
 
-  console.log(jsonBody);
 
   let usr: AbnbUser = {
     user: {
@@ -557,7 +575,9 @@ export const Vrbo_getListingSearch = async (
   });
 
   let rawBodyComplete = await completeResponse.body();
+  console.log("rawBodyComplete",rawBodyComplete)
   let jsonBodyComplete = JSON.parse(rawBodyComplete.toString());
+
 
   let completeSearch = jsonBodyComplete.data as VrboSearchResponse;
 
@@ -662,14 +682,12 @@ export const saveRemoteImagesToS3 = async (
       continue;
     }
   }
-  //console.log("saveRemoteImagesToS3", response);
   return response;
 };
 
 export const objToBase64 = (data: object) => {
   let result = "";
   result = Buffer.from(JSON.stringify(data)).toString("base64");
-  console.log(result);
   return result;
 };
 
