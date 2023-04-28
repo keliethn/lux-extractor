@@ -119,6 +119,8 @@ export const Abnb_getListings = async (
           id: String(unit.listing.id),
           name: unit.listing.name,
           price: unit.listing.price,
+          thumbnail:unit.listing.thumbnail_url,
+          hostId:unit.listing.primary_host.id.toString()
         };
         response.push(details);
         //  }
@@ -286,7 +288,7 @@ export const Vrbo_getListing = async (
         listingId: listingId,
       },
       query:
-        "query Listing($listingId: String!) {\n  listing(listingId: $listingId) {\n availabilityCalendar {availability\n {\n minStayDefault \n} \n} \n averageRating\n listingId\n listingNumber\n address {city\n}\n priceSummary {amount\n}\n geoCode {latitude\n longitude\n}\n geography {description\n}\n propertyName\n description\n sleeps\n spaces {spacesSummary{bathroomCount\n bedroomCount\n toiletOnlyCount\n bedCountDisplay\n}\n}\n  images {uri\n caption\n}\n} \n}",
+        "query Listing($listingId: String!) {\n  listing(listingId: $listingId) {\n availabilityCalendar {availability\n {\n minStayDefault \n} \n} \n averageRating\n listingId\n listingNumber\n propertyTypeKey\n thumbnailUrl\n address {city\n}\n priceSummary {amount\n}\n geoCode {latitude\n longitude\n}\n geography {description\n}\n propertyName\n description\n sleeps\n spaces {spacesSummary{bathroomCount\n bedroomCount\n toiletOnlyCount\n bedCountDisplay\n}\n}\n  images {uri\n caption\n}\n} \n}",
     },
   });
   let rawBody = await resp.body();
@@ -299,6 +301,7 @@ export const Vrbo_getListing = async (
     listing: {
       id: Number(jsonBody.data.listing.listingNumber),
       city: String(jsonBody.data.listing.address.city),
+      thumbnail_url:String(jsonBody.data.listing.thumbnailUrl),
       price: Number(jsonBody.data.listing.priceSummary.amount),
       lat: Number(jsonBody.data.listing.geoCode.latitude),
       lng: Number(jsonBody.data.listing.geoCode.longitude),
@@ -323,6 +326,8 @@ export const Vrbo_getListing = async (
       reviews_count: reviewsCount,
       picture_count: Array(jsonBody.data.listing.images).length,
       description: String(jsonBody.data.listing.description),
+      property_type:String(jsonBody.data.listing.propertyTypeKey),
+      room_type_category:String(jsonBody.data.listing.propertyTypeKey),
       photos: jsonBody.data.listing.images,
     },
   };
@@ -636,6 +641,9 @@ export const saveRemoteImagesToS3 = async (
       });
       let dwn = Buffer.from(img.data);
 
+      const image = sharp(dwn)
+      const metadata = await image.metadata()
+
       sharp(dwn)
         .webp()
         .toBuffer()
@@ -654,28 +662,15 @@ export const saveRemoteImagesToS3 = async (
                 origin: imgOrigin,
                 caption: photo.value,
                 imageId: imgName,
+                width:metadata.width,
+                height:metadata.height
               };
               response.push(updatedPhoto);
             })
             .catch((e) => {
               throw e;
             });
-          // AWSSvc.s3.upload(
-          //   params,
-          //   function (err: Error, data: ManagedUpload.SendData) {
-          //     if (err) {
 
-          //     } else {
-          //       let updatedPhoto: ListingGalleryExtraction = {
-          //         objectKey: data.Key,
-          //         origin: imgOrigin,
-          //         caption: photo.value,
-          //         imageId: imgName,
-          //       };
-          //       response.push(updatedPhoto);
-          //     }
-          //   }
-          // );
         });
     } catch (e: any) {
       console.log("Skipped: Error while acquiring image from remote server");

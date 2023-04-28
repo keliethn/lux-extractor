@@ -9,6 +9,9 @@ export type ListingExtractionDetails = {
   reviews?: number;
   lat: number;
   lng: number;
+  thumbnail:string;
+  type:string;
+  roomType:string;
   photos: ListingGalleryExtraction[];
 };
 
@@ -32,6 +35,8 @@ export type ListingGalleryExtraction = {
   origin?: string;
   objectKey?: string;
   caption?: string;
+  width?:number;
+  height?:number;
 };
 
 export type ListingReviewExtraction = {
@@ -61,6 +66,8 @@ export type ListingSearchExtraction = {
   ref?:string;
   name: string;
   price: number;
+  thumbnail?:string;
+  hostId?:string;
 };
 
 export type AbnbListing = {
@@ -73,6 +80,7 @@ export type VrboListing = {
 
 export type AbnbListingData = {
   id: number;
+  thumbnail_url:string;
   city: string;
   user_id: number;
   price: number;
@@ -88,12 +96,15 @@ export type AbnbListingData = {
   reviews_count: number;
   picture_count: number;
   description: string;
+  property_type:string;
+  room_type_category:string;
   photos: AbnbPhoto[];
   primary_host:AbnbHost;
 };
 
 export type VrboListingData = {
   id: number;
+  thumbnail_url:string;
   city: string;
   price: number;
   lat: number;
@@ -108,6 +119,8 @@ export type VrboListingData = {
   reviews_count: number;
   picture_count: number;
   description: string;
+  property_type:string;
+  room_type_category:string;
   photos: VrboPhoto[];
 };
 

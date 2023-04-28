@@ -96,7 +96,7 @@ export const vrboExtraction = async (
               sourceId: req.sourceId,
               userId: req.userId,
               element: req.element,
-              companyId: req.companyId
+              companyId: req.companyId,
             };
           }
 
@@ -182,6 +182,17 @@ const vrboDetails = async (
   };
   let unit = await Vrbo_getListing(api, listingId, reviewsCount);
 
+  let thumbnailImgName: string;
+  let imgString = unit.listing.thumbnail_url.replace("https://", "");
+  if (imgString !== null) {
+    let imgArray = imgString.split("/");
+    let imgArrayItem = imgArray[imgArray.length - 1];
+    if (imgArrayItem !== null) {
+      let imgId = imgArrayItem.split(".")[0];
+      thumbnailImgName = `${req.sourceId}-${imgId}.webp`;
+    }
+  }
+
   response.details = {
     baths: unit.listing.bathrooms,
     bedrooms: unit.listing.bedrooms,
@@ -193,6 +204,9 @@ const vrboDetails = async (
     reviews: unit.listing.reviews_count,
     lat: unit.listing.lat,
     lng: unit.listing.lng,
+    type: unit.listing.property_type,
+    roomType: unit.listing.room_type_category,
+    thumbnail: thumbnailImgName,
     photos: unit.listing.photos.map((x) => {
       let imgString = x.uri.replace("https://", "");
       if (imgString !== null) {
@@ -213,13 +227,7 @@ const vrboDetails = async (
           return img;
         }
       }
-      // let response: ListingGalleryExtraction = {
-      //   imageId: x.id.toString(),
-      //   origin: x.xl_picture,
-      //   objectKey: "",
-      //   caption: x.caption,
-      // };
-      // return response;
+
     }),
   };
 
@@ -363,7 +371,6 @@ const vrboSingleListing = async (
     element: req.element,
     companyId: req.companyId,
   };
-console.log("entra ")
   let unit = await Vrbo_getListing(api, listingId, reviewsCount);
   let usr: AbnbUser;
   if (unit.listing !== undefined) {
@@ -382,6 +389,17 @@ console.log("entra ")
       isSuperhost: false,
     };
 
+    let thumbnailImgName: string;
+    let imgString = unit.listing.thumbnail_url.replace("https://", "");
+    if (imgString !== null) {
+      let imgArray = imgString.split("/");
+      let imgArrayItem = imgArray[imgArray.length - 1];
+      if (imgArrayItem !== null) {
+        let imgId = imgArrayItem.split(".")[0];
+        thumbnailImgName = `${req.sourceId}-${imgId}.webp`;
+      }
+    }
+
     response.details = {
       baths: unit.listing.bathrooms,
       bedrooms: unit.listing.bedrooms,
@@ -393,6 +411,9 @@ console.log("entra ")
       reviews: unit.listing.reviews_count,
       lat: unit.listing.lat,
       lng: unit.listing.lng,
+      type: unit.listing.property_type,
+      roomType: unit.listing.room_type_category,
+      thumbnail: thumbnailImgName,
       photos: unit.listing.photos.map((x) => {
         let imgString = x.uri.replace("https://", "");
         if (imgString !== null) {
@@ -460,90 +481,3 @@ console.log("entra ")
 
   return response;
 };
-
-// const getSearch = (
-//   api: APIRequestContext,
-// ): Promise<ListingSearchExtraction[]> => {
-//   return new Promise(async (resolve, reject) => {
-//     let results: ListingSearchExtraction[] = [];
-//     for (const [index, currentCursor] of data.cursors.entries()) {
-//       let newRequest: VrboSearchRequest = {
-//         operationName: "StaysSearch",
-//         variables: {
-//           isInitialLoad: true,
-//           hasLoggedIn: false,
-//           cdnCacheSafe: false,
-//           source: "EXPLORE",
-//           staysSearchRequest: {
-//             requestedPageType: "STAYS_SEARCH",
-//             cursor: currentCursor,
-//             metadataOnly: false,
-//             searchType: "unknown",
-//             treatmentFlags: [
-//               "decompose_stays_search_m2_treatment",
-//               "flex_destinations_june_2021_launch_web_treatment",
-//               "new_filter_bar_v2_fm_header",
-//               "new_filter_bar_v2_and_fm_treatment",
-//               "merch_header_breakpoint_expansion_web",
-//               "flexible_dates_12_month_lead_time",
-//               "storefronts_nov23_2021_homepage_web_treatment",
-//               "lazy_load_flex_search_map_compact",
-//               "lazy_load_flex_search_map_wide",
-//               "im_flexible_may_2022_treatment",
-//               "im_flexible_may_2022_treatment",
-//               "flex_v2_review_counts_treatment",
-//               "search_add_category_bar_ui_ranking_web",
-//               "p2_grid_updates_web_v2",
-//               "flexible_dates_options_extend_one_three_seven_days",
-//               "super_date_flexibility",
-//               "micro_flex_improvements",
-//               "micro_flex_show_by_default",
-//               "search_input_placeholder_phrases",
-//               "pets_fee_treatment",
-//             ],
-//             rawParams: [
-//               { filterName: "cdnCacheSafe", filterValues: ["false"] },
-//               {
-//                 filterName: "federatedSearchSessionId",
-//                 filterValues: [sessionId],
-//               },
-//               { filterName: "flexibleTripLengths", filterValues: ["one_week"] },
-//               { filterName: "hasLoggedIn", filterValues: ["false"] },
-//               { filterName: "isInitialLoad", filterValues: ["true"] },
-//               { filterName: "itemsPerGrid", filterValues: ["40"] },
-//               {
-//                 filterName: "placeId",
-//                 filterValues: [data.placeId],
-//               },
-//               { filterName: "priceFilterInputType", filterValues: ["0"] },
-//               { filterName: "priceFilterNumNights", filterValues: ["5"] },
-//               { filterName: "query", filterValues: data.query },
-//               { filterName: "refinementPaths", filterValues: ["/homes"] },
-//               { filterName: "screenSize", filterValues: ["large"] },
-//               { filterName: "tabId", filterValues: ["home_tab"] },
-//               { filterName: "version", filterValues: ["1.8.3"] },
-//             ],
-//           },
-//           staysSearchM3Enabled: false,
-//           staysSearchM6Enabled: false,
-//           feedMapDecoupleEnabled: false,
-//         },
-//         extensions: {
-//           persistedQuery: {
-//             version: 1,
-//             sha256Hash: data.hash,
-//           },
-//         },
-//       };
-//       let pageResults = await Vrbo_getListingSearch(api, newRequest);
-//       if (pageResults.length > 0) {
-//         results.push.apply(results, pageResults);
-//       }
-//     }
-
-//     const map = new Map(results.map((obj) => [obj.id, obj]));
-//     const deduplicatedResults = [...map.values()];
-
-//     resolve(deduplicatedResults);
-//   });
-// };

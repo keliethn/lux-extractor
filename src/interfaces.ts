@@ -28,10 +28,10 @@ export interface ExtractionRes {
   companyId: string;
   source: ListingSource;
   sourceId: string;
-  reference?:string;
+  reference?: string;
   element: ElementToExtract;
   details?: ListingExtractionDetails;
-  host?:ListingExtractionHost;
+  host?: ListingExtractionHost;
   gallery?: ListingGalleryExtraction[];
   reviews?: ListingReviewExtraction[];
   ambients?: ListingAmbientExtraction[];
@@ -43,24 +43,20 @@ export interface ExtractionRes {
 }
 
 export interface SQSEvent {
-  Records:sqsMessage[];
+  Records: sqsMessage[];
 }
-
-
 
 interface sqsMessage {
-  messageId: string,
-  receiptHandle: string,
-  body: string,
-  attributes: object[],
-  messageAttributes: {},
-  md5OfBody: string,
-  eventSource: string,
-  eventSourceARN: string,
-  awsRegion: string
+  messageId: string;
+  receiptHandle: string;
+  body: string;
+  attributes: object[];
+  messageAttributes: {};
+  md5OfBody: string;
+  eventSource: string;
+  eventSourceARN: string;
+  awsRegion: string;
 }
-
-
 
 export interface SearchResponseInitialState {
   niobeMinimalClientData: [string, object][]; //SearResponse Type... look for index 1
@@ -85,21 +81,21 @@ export interface AbnbSearchResponse {
   };
 }
 
-export interface VrboSearchResponse{
-results:{
-  resultCount:number;
-  page:number;
-  pageSize:number;
-  pageCount:number;
-  listings:{
-    averageRating: number;
-    geoCode: { latitude: number; longitude: number };
-    propertyId: string;
-    listingId:string;
-    propertyMetadata: {headline:string};
-    prices: {perNight:{amount:number}};
-  }[]
-}
+export interface VrboSearchResponse {
+  results: {
+    resultCount: number;
+    page: number;
+    pageSize: number;
+    pageCount: number;
+    listings: {
+      averageRating: number;
+      geoCode: { latitude: number; longitude: number };
+      propertyId: string;
+      listingId: string;
+      propertyMetadata: { headline: string };
+      prices: { perNight: { amount: number } };
+    }[];
+  };
 }
 
 export interface StayResultItem {
@@ -116,8 +112,8 @@ export interface StayResultItem {
     structuredStayDisplayPrice: {
       primaryLine: {
         price: string;
-        discountedPrice:string;
-        originalPrice:string;
+        discountedPrice: string;
+        originalPrice: string;
       };
     };
   };
@@ -152,53 +148,51 @@ export interface AbnbSearchRequest {
 
 export interface VrboSearchRequest {
   operationName: string; //StaysSearch
-  query:string;
+  query: string;
   variables: {
-    filterCounts:boolean; //false
-    optimizedBreadcrumb:boolean; //false
-    request:{
-      coreFilters:{
-        maxBathrooms?:number;
-        maxBedrooms?:number;
-        maxNightlyPrice?:number;
-        maxTotalPrice?:number;
-        minBathrooms:number;
-        minBedrooms:number;
-        minNightlyPrice:number;
-        minTotalPrice?:number;
-        pets:number
-      },
-      filters:string[],
-      filterVersion:string
-      paging:{
-        page:number;
-        pageSize:number;
-      }
-      q:string;
-    }
-    vrbo_web_global_messaging_banner:boolean;
+    filterCounts: boolean; //false
+    optimizedBreadcrumb: boolean; //false
+    request: {
+      coreFilters: {
+        maxBathrooms?: number;
+        maxBedrooms?: number;
+        maxNightlyPrice?: number;
+        maxTotalPrice?: number;
+        minBathrooms: number;
+        minBedrooms: number;
+        minNightlyPrice: number;
+        minTotalPrice?: number;
+        pets: number;
+      };
+      filters: string[];
+      filterVersion: string;
+      paging: {
+        page: number;
+        pageSize: number;
+      };
+      q: string;
+    };
+    vrbo_web_global_messaging_banner: boolean;
   };
   extensions: {
-    isPageLoadSearch:boolean
+    isPageLoadSearch: boolean;
   };
 }
 
-
 export interface SearchCursor {
-  section_offset:number; //0
-  items_offset:number; //0
-  version:number; //1
-  }
+  section_offset: number; //0
+  items_offset: number; //0
+  version: number; //1
+}
 
-  export interface SearchQueryString {
-      tab_id: string;
-      query: string;
-      place_id: string;
-      price_filter_input_type: string;
-      price_filter_num_nights:string;
-      federated_search_session_id: string;
-      search_type: string;
-      pagination_search: string;
-      cursor: string
-        
-  }
+export interface SearchQueryString {
+  tab_id: string;
+  query: string;
+  place_id: string;
+  price_filter_input_type: string;
+  price_filter_num_nights: string;
+  federated_search_session_id: string;
+  search_type: string;
+  pagination_search: string;
+  cursor: string;
+}

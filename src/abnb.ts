@@ -27,7 +27,7 @@ import { APIRequestContext, Browser, Page } from "playwright-chromium";
 
 export const abnbExtraction = async (
   browser: Browser,
-  req: ExtractionReq,
+  req: ExtractionReq
   //dataSource:DataSource
 ): Promise<ExtractionRes> => {
   return new Promise(async (resolve, reject) => {
@@ -55,6 +55,9 @@ export const abnbExtraction = async (
     const api = context.request;
     try {
       switch (req.element) {
+        case ElementToExtract.lookup:
+          response=await abnbLookup(api,req)
+          break;
         case ElementToExtract.user:
           response = await abnbUser(api, req);
           break;
@@ -90,6 +93,30 @@ export const abnbExtraction = async (
   });
 };
 
+const abnbLookup=async( api: APIRequestContext,
+  req: ExtractionReq): Promise<ExtractionRes> => {
+    let response: ExtractionRes = {
+      extractionId: req.extractionId,
+      source: req.source,
+      sourceId: req.sourceId,
+      userId: req.userId,
+      element: ElementToExtract.search,
+      companyId: req.companyId,
+    };
+
+    let unit=await Abnb_getListing(api,req.sourceId);
+
+    let hostId=unit.listing.primary_host.id;
+
+    let host=await Abnb_getUser(api,hostId.toString());
+
+    let hostListings=await Abnb_getListings(api,hostId.toString(),host.user.listings_count);
+
+
+    response.search=hostListings;
+    return response;
+  }
+
 const abnbUser = async (
   api: APIRequestContext,
   req: ExtractionReq
@@ -122,7 +149,7 @@ const abnbUser = async (
 
 const abnbMultipleListing = async (
   api: APIRequestContext,
-  req: ExtractionReq,
+  req: ExtractionReq
   //dataSource:DataSource
 ): Promise<ExtractionRes> => {
   let response: ExtractionRes = {
@@ -173,6 +200,18 @@ const abnbSingleListing = async (
       isSuperhost: unit.listing.primary_host.is_superhost,
     };
 
+    let thumbnailImgName: string;
+    if (unit.listing.thumbnail_url) {
+      let imgArrayRaw = unit.listing.thumbnail_url.split("?");
+      let imgOrigin = imgArrayRaw[0];
+
+      let imgNameRaw = imgOrigin.split("/");
+
+      thumbnailImgName = `${unit.listing.id}-${imgNameRaw[imgNameRaw.length - 1]
+        .replace(".jpg", ".webp")
+        .replace(".jpeg", ".webp")}`;
+    }
+
     response.details = {
       baths: unit.listing.bathrooms,
       bedrooms: unit.listing.bedrooms,
@@ -182,8 +221,11 @@ const abnbSingleListing = async (
       description: unit.listing.description,
       title: unit.listing.name,
       reviews: unit.listing.reviews_count,
-      lat:unit.listing.lat,
-      lng:unit.listing.lng,
+      lat: unit.listing.lat,
+      lng: unit.listing.lng,
+      type: unit.listing.property_type,
+      roomType: unit.listing.room_type_category,
+      thumbnail: thumbnailImgName,
       photos: unit.listing.photos.map((x) => {
         let response: ListingGalleryExtraction = {
           imageId: x.id.toString(),
@@ -242,11 +284,7 @@ const abnbSingleListing = async (
       return response;
     });
 
-    let gallery = await saveRemoteImagesToS3(
-      api,
-      req.sourceId,
-      photos
-    );
+    let gallery = await saveRemoteImagesToS3(api, req.sourceId, photos);
 
     response.gallery = gallery;
   }
@@ -285,6 +323,19 @@ const abnbDetails = async (
     isSuperhost: unit.listing.primary_host.is_superhost,
   };
 
+  // get thumbnail image name
+  let thumbnailImgName: string;
+  if (unit.listing.thumbnail_url) {
+    let imgArrayRaw = unit.listing.thumbnail_url.split("?");
+    let imgOrigin = imgArrayRaw[0];
+
+    let imgNameRaw = imgOrigin.split("/");
+
+    thumbnailImgName = `${unit.listing.id}-${imgNameRaw[imgNameRaw.length - 1]
+      .replace(".jpg", ".webp")
+      .replace(".jpeg", ".webp")}`;
+  }
+
   response.details = {
     baths: unit.listing.bathrooms,
     bedrooms: unit.listing.bedrooms,
@@ -294,8 +345,11 @@ const abnbDetails = async (
     description: unit.listing.description,
     title: unit.listing.name,
     reviews: unit.listing.reviews_count,
-    lat:unit.listing.lat,
-    lng:unit.listing.lng,
+    lat: unit.listing.lat,
+    lng: unit.listing.lng,
+    type: unit.listing.property_type,
+    roomType: unit.listing.room_type_category,
+    thumbnail: thumbnailImgName,
     photos: unit.listing.photos.map((x) => {
       let response: ListingGalleryExtraction = {
         imageId: x.id.toString(),
@@ -390,11 +444,7 @@ const abnbGallery = async (
     companyId: req.companyId,
   };
 
-  let gallery = await saveRemoteImagesToS3(
-    api,
-    req.sourceId,
-    req.sourceData
-  );
+  let gallery = await saveRemoteImagesToS3(api, req.sourceId, req.sourceData);
 
   response.gallery = gallery;
 

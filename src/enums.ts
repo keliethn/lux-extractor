@@ -14,7 +14,8 @@ export enum ElementToExtract{
     gallery="gallery",
     calendar="calendar",
     search="search",
-    none="none"
+    none="none",
+    lookup="lookup"
 }
 
 export enum LocationGeoLevel{
