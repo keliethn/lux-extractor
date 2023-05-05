@@ -51,14 +51,22 @@ const handler = async (event: SQSEvent) => {
 };
 
 const data: ExtractionReq = {
-  source: ListingSource.VRBO,
-  sourceId: "guacalito-de-la-isla-tola-rivas-department-nicaragua", // vrbo details -> 4442382ha ||  vrbo others -> 127.4442382.5027381
+  source: ListingSource.AirBnB,
+  sourceId: "53987066",
+  element: ElementToExtract.lookup,
   sourceCount: 0,
   sourceData: [],
-  element: ElementToExtract.search,
-  userId: "2222222222",
-  extractionId: "1111111111",
-  companyId: "0000000000",
+  userId: 'c8f5f86f-f76a-4dac-9627-6423dfd2d74c',
+  extractionId: 'a72edb04-fb75-4608-b6a4-5f45dfedf099',
+  companyId: 'f25f6df7-4e78-4a70-80aa-4d63aa745ce5'
+  // source: ListingSource.VRBO,
+  // sourceId: "guacalito-de-la-isla-tola-rivas-department-nicaragua", // vrbo details -> 4442382ha ||  vrbo others -> 127.4442382.5027381
+  // sourceCount: 0,
+  // sourceData: [],
+  // element: ElementToExtract.search,
+  // userId: "2222222222",
+  // extractionId: "1111111111",
+  // companyId: "0000000000",
 };
 
 const testObj: SQSEvent = {

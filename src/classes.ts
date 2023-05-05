@@ -20,10 +20,13 @@ export class Listing {
       costPerNight: 0,
       description: "",
       maxOccupancy: 0,
-      photos:[],
-      reviews:0,
-      lat:0,
-      lng:0
+      photos: [],
+      reviews: 0,
+      lat: 0,
+      lng: 0,
+      thumbnail: "",
+      type: "",
+      roomType: "",
     };
     this.gallery = [];
     this.reviews = [];

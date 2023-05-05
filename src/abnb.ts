@@ -34,11 +34,7 @@ export const abnbExtraction = async (
     let response: ExtractionRes;
     const page = await browser.newPage();
     const context = page.context();
-    // page.on("request",(r)=>{
-    //   let headers=r.headers();
-    //   let key=headers["x-airbnb-api-key"]
-    //   console.log(key)
-    // })
+
 
     if (req.element !== ElementToExtract.search) {
       await page.goto(`https://www.airbnb.com/rooms/${req.sourceId}`, {
@@ -112,7 +108,6 @@ const abnbLookup=async( api: APIRequestContext,
 
     let hostListings=await Abnb_getListings(api,hostId.toString(),host.user.listings_count);
 
-
     response.search=hostListings;
     return response;
   }
@@ -178,7 +173,7 @@ const abnbSingleListing = async (
     element: req.element,
     companyId: req.companyId,
   };
-  //console.log(req.sourceId, req.source);
+
 
   let unit = await Abnb_getListing(api, req.sourceId);
   let usr: AbnbUser;
@@ -306,7 +301,7 @@ const abnbDetails = async (
   };
   let unit = await Abnb_getListing(api, req.sourceId);
   let usr = await Abnb_getUser(api, unit.listing.primary_host.id.toString());
-  //console.log(unit.listing)
+
   response.host = {
     id: unit.listing.primary_host.id.toString(),
     firstName: unit.listing.primary_host.first_name,

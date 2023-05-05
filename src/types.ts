@@ -61,7 +61,7 @@ export type ListingCalendarExtraction = {
 export type ListingSearchExtraction = {
   avgRating: number;
   isNew:boolean;
-  coordinate: { latitude: number; longitude: number };
+  coordinate?: { latitude: number; longitude: number };
   id: string;
   ref?:string;
   name: string;

@@ -104,11 +104,6 @@ export const Abnb_getListings = async (
       let unit = await Abnb_getListing(api, l.id.toString());
 
       if (unit !== null) {
-        // let point: Point = {
-        //   type: "Point",
-        //   coordinates: [unit.listing.lat, unit.listing.lng],
-        // };
-        // if (IsPointInsideTargetCountry(point, countries)) {
         let details: ListingSearchExtraction = {
           avgRating: 0,
           isNew: false,
@@ -123,7 +118,58 @@ export const Abnb_getListings = async (
           hostId:unit.listing.primary_host.id.toString()
         };
         response.push(details);
-        //  }
+     
+      }
+    }
+  }
+
+  return response;
+};
+
+export const Abnb_getListingsLookup = async (
+  api: APIRequestContext,
+  userId: string,
+  listingCount: number
+) => {
+ 
+
+  let resp = await api.get(
+    `https://www.airbnb.com/api/v2/user_promo_listings?locale=en-US&currency=USD&_limit=${listingCount}&_offset=0&user_id=${userId}`,
+    {
+      headers: {
+        "x-airbnb-api-key": "d306zoyjsyarp7ifhu67rjxn52tv0t20",
+      },
+    }
+  );
+
+  let rawBody = await resp.body();
+  let jsonBody = JSON.parse(rawBody.toString());
+
+  let listing = jsonBody as AbnbListingList;
+
+  let response: ListingSearchExtraction[] = [];
+
+  if (listing.user_promo_listings.length > 0) {
+    for (const l of listing.user_promo_listings) {
+      let unit = await Abnb_getListing(api, l.id.toString());
+
+      if (unit !== null) {
+
+        let details: ListingSearchExtraction = {
+          avgRating: 0,
+          isNew: false,
+          coordinate: {
+            latitude: unit.listing.lat,
+            longitude: unit.listing.lng,
+          },
+          id: String(unit.listing.id),
+          name: unit.listing.name,
+          price: unit.listing.price,
+          thumbnail:unit.listing.thumbnail_url,
+          hostId:unit.listing.primary_host.id.toString()
+        };
+        response.push(details);
+   
       }
     }
   }
@@ -580,7 +626,7 @@ export const Vrbo_getListingSearch = async (
   });
 
   let rawBodyComplete = await completeResponse.body();
-  console.log("rawBodyComplete",rawBodyComplete)
+
   let jsonBodyComplete = JSON.parse(rawBodyComplete.toString());
 
 
