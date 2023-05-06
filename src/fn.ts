@@ -68,7 +68,6 @@ export const Abnb_getListing = async (
   } else {
     listing = null;
   }
-
   return listing;
 };
 
@@ -82,7 +81,7 @@ export const Abnb_getListings = async (
   // let countries = await repo.find({
   //   where: { polygonGeoLevel: LocationGeoLevel.Country },
   // });
-
+console.log(`https://www.airbnb.com/api/v2/user_promo_listings?locale=en-US&currency=USD&_limit=${listingCount}&_offset=0&user_id=${userId}`)
   let resp = await api.get(
     `https://www.airbnb.com/api/v2/user_promo_listings?locale=en-US&currency=USD&_limit=${listingCount}&_offset=0&user_id=${userId}`,
     {
@@ -101,8 +100,7 @@ export const Abnb_getListings = async (
 
   if (listing.user_promo_listings.length > 0) {
     for (const l of listing.user_promo_listings) {
-      let unit = await Abnb_getListing(api, l.id.toString());
-
+      let unit = await Abnb_getListing(api, l.id_str);
       if (unit !== null) {
         let details: ListingSearchExtraction = {
           avgRating: 0,
@@ -111,7 +109,7 @@ export const Abnb_getListings = async (
             latitude: unit.listing.lat,
             longitude: unit.listing.lng,
           },
-          id: String(unit.listing.id),
+          id:l.id_str,
           name: unit.listing.name,
           price: unit.listing.price,
           thumbnail:unit.listing.thumbnail_url,

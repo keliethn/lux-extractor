@@ -8,6 +8,7 @@ import { getExtractionRequest } from "./fn";
 import AWSSvc from "./s3";
 import dotenv from "dotenv";
 import * as path from "path";
+import * as aws from "@aws-sdk/client-sqs"
 
 const handler = async (event: SQSEvent) => {
   dotenv.config({
@@ -15,6 +16,7 @@ const handler = async (event: SQSEvent) => {
   });
 
   AWSSvc.init();
+  const sqs = new aws.SQS({ apiVersion: '2012-11-05' });
   const extractionRequest = getExtractionRequest(event);
 
    
@@ -45,20 +47,27 @@ const handler = async (event: SQSEvent) => {
     await browser.close();
   }
 
-  console.log(JSON.stringify(extraction))
+ // console.log(JSON.stringify(extraction))
+ const params = {
+  MessageBody: JSON.stringify(extraction),
+  QueueUrl: "https://sqs.us-east-1.amazonaws.com/107072109140/backend",
+};
+console.log(JSON.stringify(extraction))
+const result = await sqs.sendMessage(params);
+console.log("result sent back to backend");
   return extraction;
 
 };
 
 const data: ExtractionReq = {
+  companyId: 'f25f6df7-4e78-4a70-80aa-4d63aa745ce5',
+  userId: 'c8f5f86f-f76a-4dac-9627-6423dfd2d74c',
+  element: ElementToExtract.singleListing,
   source: ListingSource.AirBnB,
-  sourceId: "53987066",
-  element: ElementToExtract.lookup,
+  sourceId: '591979685565329900',
   sourceCount: 0,
   sourceData: [],
-  userId: 'c8f5f86f-f76a-4dac-9627-6423dfd2d74c',
-  extractionId: 'a72edb04-fb75-4608-b6a4-5f45dfedf099',
-  companyId: 'f25f6df7-4e78-4a70-80aa-4d63aa745ce5'
+  extractionId: '0e5e4849-ba1a-43de-a169-327b38e4ab4e'
   // source: ListingSource.VRBO,
   // sourceId: "guacalito-de-la-isla-tola-rivas-department-nicaragua", // vrbo details -> 4442382ha ||  vrbo others -> 127.4442382.5027381
   // sourceCount: 0,

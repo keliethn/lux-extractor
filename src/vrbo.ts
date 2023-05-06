@@ -50,6 +50,15 @@ export const vrboExtraction = async (
     const api = context.request;
     try {
       switch (req.element) {
+        case ElementToExtract.lookup:
+          let obj = await getElementText(page);
+          if (obj !== "") {
+            let ob = obj && JSON.parse(obj);
+            let countReviewsSl = ob.reviewsReducer.reviewCount;
+            let listingIdSl = ob.listingReducer.listingId;
+            response=await vrboLookup(api,req,listingIdSl,countReviewsSl)
+          }
+          break;
         case ElementToExtract.user:
           response = await vrboUser(api, req);
           break;
@@ -112,6 +121,16 @@ export const vrboExtraction = async (
 
     resolve(response);
   });
+};
+
+const vrboLookup = async (
+  api: APIRequestContext,
+  req: ExtractionReq,
+  listingId: string,
+  reviewsCount?: number
+): Promise<ExtractionRes> => {
+  let response = await vrboSingleListing(api, req, listingId, reviewsCount);
+  return response;
 };
 
 const getElementText = async (page: Page): Promise<string | null> => {
@@ -227,7 +246,6 @@ const vrboDetails = async (
           return img;
         }
       }
-
     }),
   };
 

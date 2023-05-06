@@ -96,6 +96,7 @@ export type AbnbListingData = {
   reviews_count: number;
   picture_count: number;
   description: string;
+  room_type:string;
   property_type:string;
   room_type_category:string;
   photos: AbnbPhoto[];

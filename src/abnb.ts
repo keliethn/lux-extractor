@@ -219,7 +219,7 @@ const abnbSingleListing = async (
       lat: unit.listing.lat,
       lng: unit.listing.lng,
       type: unit.listing.property_type,
-      roomType: unit.listing.room_type_category,
+      roomType: unit.listing.room_type,
       thumbnail: thumbnailImgName,
       photos: unit.listing.photos.map((x) => {
         let response: ListingGalleryExtraction = {
