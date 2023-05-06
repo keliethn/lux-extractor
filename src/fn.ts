@@ -81,7 +81,7 @@ export const Abnb_getListings = async (
   // let countries = await repo.find({
   //   where: { polygonGeoLevel: LocationGeoLevel.Country },
   // });
-console.log(`https://www.airbnb.com/api/v2/user_promo_listings?locale=en-US&currency=USD&_limit=${listingCount}&_offset=0&user_id=${userId}`)
+
   let resp = await api.get(
     `https://www.airbnb.com/api/v2/user_promo_listings?locale=en-US&currency=USD&_limit=${listingCount}&_offset=0&user_id=${userId}`,
     {
@@ -100,24 +100,24 @@ console.log(`https://www.airbnb.com/api/v2/user_promo_listings?locale=en-US&curr
 
   if (listing.user_promo_listings.length > 0) {
     for (const l of listing.user_promo_listings) {
-      let unit = await Abnb_getListing(api, l.id_str);
-      if (unit !== null) {
+      //let unit = await Abnb_getListing(api, l.id_str);
+     // if (unit !== null) {
         let details: ListingSearchExtraction = {
           avgRating: 0,
           isNew: false,
-          coordinate: {
-            latitude: unit.listing.lat,
-            longitude: unit.listing.lng,
-          },
+          // coordinate: {
+          //   latitude: unit.listing.lat,
+          //   longitude: unit.listing.lng,
+          // },
           id:l.id_str,
-          name: unit.listing.name,
-          price: unit.listing.price,
-          thumbnail:unit.listing.thumbnail_url,
-          hostId:unit.listing.primary_host.id.toString()
+          name: l.name,
+          price: parseFloat(l.nightly_price_as_guest),
+          thumbnail:l.picture_url,
+          hostId:userId
         };
         response.push(details);
      
-      }
+     // }
     }
   }
 
@@ -411,6 +411,7 @@ export const Vrbo_getReviews = async (
     },
   });
 
+ 
   let rawBody = await resp.body();
   let reviewsJson = JSON.parse(rawBody.toString());
 

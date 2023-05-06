@@ -464,7 +464,7 @@ const vrboSingleListing = async (
 
     let reviews = await Vrbo_getReviews(
       api,
-      req.sourceId,
+      listingId,
       unit.listing.reviews_count
     );
 
