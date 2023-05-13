@@ -35,7 +35,6 @@ export const abnbExtraction = async (
     const page = await browser.newPage();
     const context = page.context();
 
-
     if (req.element !== ElementToExtract.search) {
       await page.goto(`https://www.airbnb.com/rooms/${req.sourceId}`, {
         timeout: 60000,
@@ -52,7 +51,7 @@ export const abnbExtraction = async (
     try {
       switch (req.element) {
         case ElementToExtract.lookup:
-          response=await abnbLookup(api,req)
+          response = await abnbLookup(api, req);
           break;
         case ElementToExtract.user:
           response = await abnbUser(api, req);
@@ -89,28 +88,34 @@ export const abnbExtraction = async (
   });
 };
 
-const abnbLookup=async( api: APIRequestContext,
-  req: ExtractionReq): Promise<ExtractionRes> => {
-    let response: ExtractionRes = {
-      extractionId: req.extractionId,
-      source: req.source,
-      sourceId: req.sourceId,
-      userId: req.userId,
-      element: ElementToExtract.search,
-      companyId: req.companyId,
-    };
+const abnbLookup = async (
+  api: APIRequestContext,
+  req: ExtractionReq
+): Promise<ExtractionRes> => {
+  let response: ExtractionRes = {
+    extractionId: req.extractionId,
+    source: req.source,
+    sourceId: req.sourceId,
+    userId: req.userId,
+    element: ElementToExtract.search,
+    companyId: req.companyId,
+  };
 
-    let unit=await Abnb_getListing(api,req.sourceId);
+  let unit = await Abnb_getListing(api, req.sourceId);
 
-    let hostId=unit.listing.primary_host.id;
+  let hostId = unit.listing.primary_host.id;
 
-    let host=await Abnb_getUser(api,hostId.toString());
+  let host = await Abnb_getUser(api, hostId.toString());
 
-    let hostListings=await Abnb_getListings(api,hostId.toString(),host.user.listings_count);
+  let hostListings = await Abnb_getListings(
+    api,
+    hostId.toString(),
+    host.user.listings_count
+  );
 
-    response.search=hostListings;
-    return response;
-  }
+  response.search = hostListings;
+  return response;
+};
 
 const abnbUser = async (
   api: APIRequestContext,
@@ -173,7 +178,6 @@ const abnbSingleListing = async (
     element: req.element,
     companyId: req.companyId,
   };
-
 
   let unit = await Abnb_getListing(api, req.sourceId);
   let usr: AbnbUser;
@@ -372,19 +376,27 @@ const abnbReviews = async (
     companyId: req.companyId,
   };
 
-  let reviews = await Abnb_getReviews(api, req.sourceId, req.sourceCount);
+  let unit = await Abnb_getListing(api, req.sourceId);
 
-  response.reviews = reviews.data.merlin.pdpReviews.reviews.map((review) => {
-    let response: ListingReviewExtraction = {
-      reviewId: review.id,
-      rating: review.rating,
-      date: DateTime.fromISO(review.createdAt).toJSDate(),
-      author: review.reviewer.firstName,
-      comment: review.comments,
-      response: review.response,
-    };
-    return response;
-  });
+  if (unit !== null) {
+    let reviews = await Abnb_getReviews(
+      api,
+      req.sourceId,
+      unit.listing.reviews_count
+    );
+
+    response.reviews = reviews.data.merlin.pdpReviews.reviews.map((review) => {
+      let response: ListingReviewExtraction = {
+        reviewId: review.id,
+        rating: review.rating,
+        date: DateTime.fromISO(review.createdAt).toJSDate(),
+        author: review.reviewer.firstName,
+        comment: review.comments,
+        response: review.response,
+      };
+      return response;
+    });
+  }
 
   return response;
 };
@@ -439,9 +451,19 @@ const abnbGallery = async (
     companyId: req.companyId,
   };
 
-  let gallery = await saveRemoteImagesToS3(api, req.sourceId, req.sourceData);
+  let unit = await Abnb_getListing(api, req.sourceId);
 
-  response.gallery = gallery;
+  if (unit !== null) {
+    let items = unit.listing.photos.map((x) => {
+      return {
+        key: x.xl_picture,
+        value: x.caption,
+      };
+    });
+    let gallery = await saveRemoteImagesToS3(api, req.sourceId, items);
+
+    response.gallery = gallery;
+  }
 
   return response;
 };
