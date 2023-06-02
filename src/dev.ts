@@ -53,8 +53,8 @@ const handler = async (event: SQSEvent) => {
   QueueUrl: "https://sqs.us-east-1.amazonaws.com/107072109140/backend",
 };
 console.log(JSON.stringify(extraction))
-const result = await sqs.sendMessage(params);
-console.log("result sent back to backend");
+// const result = await sqs.sendMessage(params);
+// console.log("result sent back to backend");
   return extraction;
 
 };
@@ -62,9 +62,9 @@ console.log("result sent back to backend");
 const data: ExtractionReq = {
   companyId: 'f25f6df7-4e78-4a70-80aa-4d63aa745ce5',
   userId: 'c8f5f86f-f76a-4dac-9627-6423dfd2d74c',
-  element: ElementToExtract.singleListing,
+  element: ElementToExtract.calendar,
   source: ListingSource.AirBnB,
-  sourceId: '591979685565329900',
+  sourceId: '15556667',
   sourceCount: 0,
   sourceData: [],
   extractionId: '0e5e4849-ba1a-43de-a169-327b38e4ab4e'

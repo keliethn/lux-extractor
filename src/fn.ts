@@ -180,8 +180,18 @@ export const Abnb_getReviews = async (
   listingId: string,
   limit: number
 ) => {
-  let rawVars = `{"request":{"fieldSelector":"for_p3","limit":${limit},"listingId":"${listingId}","numberOfAdults":"1","numberOfChildren":"0","numberOfInfants":"0"}}`;
+  let reviews:AbnbReviews[]=[]
+  let pages=Math.ceil(limit/50)
+  let pageArray:number[]=[];
+  for (let index = 0; index < pages; index++) {
+    pageArray.push(index)
+  }
+
+  for (const pg of pageArray) {
+    let offset=50*pg
+    let rawVars = `{"request":{"fieldSelector":"for_p3","limit":"50","listingId":"${listingId}","numberOfAdults":"1","offset":"${offset}","numberOfChildren":"0","numberOfInfants":"0"}}`;
   let rawExt = `{"persistedQuery":{"version":1,"sha256Hash":"6a71d7bc44d1f4f16cced238325ced8a93e08ea901270a3f242fd29ff02e8a3a"}}`;
+    
   let variables = urlencode(rawVars);
   let extentions = urlencode(rawExt);
 
@@ -197,7 +207,11 @@ export const Abnb_getReviews = async (
   let rawBody = await resp.body();
   let jsonBody = JSON.parse(rawBody.toString());
 
-  let reviews = jsonBody as AbnbReviews;
+  reviews.push((jsonBody as AbnbReviews))
+  //let reviews = jsonBody as AbnbReviews;
+  }
+
+  console.log(reviews.length)
 
   return reviews;
 };

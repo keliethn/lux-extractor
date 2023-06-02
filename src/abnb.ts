@@ -242,17 +242,23 @@ const abnbSingleListing = async (
       unit.listing.reviews_count
     );
 
-    response.reviews = reviews.data.merlin.pdpReviews.reviews.map((review) => {
-      let response: ListingReviewExtraction = {
-        reviewId: review.id,
-        rating: review.rating,
-        date: DateTime.fromISO(review.createdAt).toJSDate(),
-        author: review.reviewer.firstName,
-        comment: review.comments,
-        response: review.response,
-      };
-      return response;
-    });
+    let rev:ListingReviewExtraction[]=[];
+
+    reviews.forEach(x=>{
+      x.data.merlin.pdpReviews.reviews.map((review) => {
+        let response: ListingReviewExtraction = {
+          reviewId: review.id,
+          rating: review.rating,
+          date: DateTime.fromISO(review.createdAt).toJSDate(),
+          author: review.reviewer.firstName,
+          comment: review.comments,
+          response: review.response,
+        };
+        rev.push(response)
+      });
+    })
+
+    response.reviews = rev
 
     let dateStart = DateTime.now().setZone(process.env.timezone);
     let dateEnd = dateStart.plus({ months: 12 });
@@ -385,17 +391,22 @@ const abnbReviews = async (
       unit.listing.reviews_count
     );
 
-    response.reviews = reviews.data.merlin.pdpReviews.reviews.map((review) => {
-      let response: ListingReviewExtraction = {
-        reviewId: review.id,
-        rating: review.rating,
-        date: DateTime.fromISO(review.createdAt).toJSDate(),
-        author: review.reviewer.firstName,
-        comment: review.comments,
-        response: review.response,
-      };
-      return response;
-    });
+    let rev:ListingReviewExtraction[]=[];
+    reviews.forEach(x=>{
+        x.data.merlin.pdpReviews.reviews.forEach((review) => {
+          let response: ListingReviewExtraction = {
+            reviewId: review.id,
+            rating: review.rating,
+            date: DateTime.fromISO(review.createdAt).toJSDate(),
+            author: review.reviewer.firstName,
+            comment: review.comments,
+            response: review.response,
+          };
+          rev.push(response)
+        });
+    })
+
+    response.reviews = rev
   }
 
   return response;
@@ -415,24 +426,28 @@ const abnbCalendar = async (
   };
 
   let dateStart = DateTime.now().setZone(process.env.timezone);
-  let dateEnd = dateStart.plus({ months: req.sourceCount });
-  let availability = await Abnb_getAvailalibity(
-    api,
-    req.sourceId,
-    dateStart.toFormat("yyyy-MM-dd"),
-    dateEnd.toFormat("yyyy-MM-dd")
-  );
+  let unit=await Abnb_getListing(api,req.sourceId);
+  if(unit!==null){
 
-  if (availability.calendar !== undefined) {
-    response.calendar = availability.calendar.days.map((d) => {
-      let r: ListingCalendarExtraction = {
-        available: d.available,
-        date: DateTime.fromFormat(d.date, "yyyy-MM-dd").toJSDate(),
-      };
-      return r;
-    });
-  } else {
-    response.calendar = [];
+    let dateEnd = dateStart.plus({ days: unit.listing.max_nights_input_value});
+    let availability = await Abnb_getAvailalibity(
+      api,
+      req.sourceId,
+      dateStart.toFormat("yyyy-MM-dd"),
+      dateEnd.toFormat("yyyy-MM-dd")
+    );
+  
+    if (availability.calendar !== undefined) {
+      response.calendar = availability.calendar.days.map((d) => {
+        let r: ListingCalendarExtraction = {
+          available: d.available,
+          date: DateTime.fromFormat(d.date, "yyyy-MM-dd").toJSDate(),
+        };
+        return r;
+      });
+    } else {
+      response.calendar = [];
+    }
   }
 
   return response;

@@ -101,6 +101,7 @@ export type AbnbListingData = {
   room_type_category:string;
   photos: AbnbPhoto[];
   primary_host:AbnbHost;
+  max_nights_input_value:number
 };
 
 export type VrboListingData = {
