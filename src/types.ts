@@ -7,12 +7,13 @@ export type ListingExtractionDetails = {
   costPerNight: number;
   description: string;
   reviews?: number;
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   thumbnail:string;
-  type:string;
-  roomType:string;
-  photos: ListingGalleryExtraction[];
+  type?:string;
+  roomType?:string;
+  hostId?:string;
+  photos?: ListingGalleryExtraction[];
 };
 
 export type ListingExtractionHost = {
@@ -68,6 +69,14 @@ export type ListingSearchExtraction = {
   price: number;
   thumbnail?:string;
   hostId?:string;
+};
+
+export type PriceRangeLookup = {
+  neLat:number;
+  neLng:number;
+  swLat:number;
+  swLng:number;
+  ranges:{min:number,max:number,count:number}[]
 };
 
 export type AbnbListing = {
@@ -185,7 +194,7 @@ export type AbnbAvalibility = {
   calendar: {
     days: Day[];
   };
-};
+};  
 
 export type VrboAvalibility = {
   calendar: {

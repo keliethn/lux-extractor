@@ -1,22 +1,22 @@
 import "reflect-metadata";
 import AWSSvc from "./s3";
-import * as aws from "@aws-sdk/client-sqs"
+import * as aws from "@aws-sdk/client-sqs";
 import { chromium } from "playwright-core";
 import awsChromium from "chrome-aws-lambda";
-import { ListingSource } from "./enums";
+import { ElementToExtract, ListingSource } from "./enums";
 import { vrboExtraction } from "./vrbo";
-import { abnbExtraction } from "./abnb";
+import { abnbExtraction } from "./abnb2";
 import { getExtractionRequest } from "./fn";
 import { ExtractionRes, SQSEvent } from "./interfaces";
 
 exports.handler = async (event: SQSEvent) => {
   AWSSvc.init();
-  const sqs = new aws.SQS({ apiVersion: '2012-11-05' });
+  const sqs = new aws.SQS({ apiVersion: "2012-11-05" });
   const extractionRequest = getExtractionRequest(event);
 
- console.log(extractionRequest)
- 
-  let extraction: ExtractionRes;
+  console.log(JSON.stringify(extractionRequest));
+
+  //let extraction: ExtractionRes;
   if (extractionRequest.source === ListingSource.VRBO) {
     const browser = await chromium.launch({
       args: [
@@ -34,8 +34,26 @@ exports.handler = async (event: SQSEvent) => {
         password: "bUQDwQFlDCnWGPqqVJF1",
       },
     });
-    extraction = await vrboExtraction(browser, extractionRequest);
-    await browser.close();
+    try {
+      let vrboExtractionResult = await vrboExtraction(
+        browser,
+        extractionRequest
+      );
+      await sendResponse(vrboExtractionResult, sqs);
+      await browser.close();
+    } catch (error) {
+      let vrboExtractionError = {
+        extractionId: extractionRequest.extractionId,
+        source: extractionRequest.source,
+        sourceId: extractionRequest.sourceId,
+        userId: extractionRequest.userId,
+        element: ElementToExtract.ERROR,
+        companyId: extractionRequest.companyId,
+        error: error,
+      };
+      await sendResponse(vrboExtractionError, sqs);
+      await browser.close();
+    }
   } else if (extractionRequest.source === ListingSource.AirBnB) {
     const browser = await chromium.launch({
       args: [
@@ -53,15 +71,51 @@ exports.handler = async (event: SQSEvent) => {
       //   password: "bUQDwQFlDCnWGPqqVJF1",
       // },
     });
-    extraction = await abnbExtraction(browser,extractionRequest);
-    await browser.close();
+    try {
+      let abnbExtractionResult = await abnbExtraction(
+        browser,
+        extractionRequest
+      );
+      await sendResponse(abnbExtractionResult, sqs);
+      await browser.close();
+    } catch (error) {
+      if (typeof error === "string") {
+        if (error === "not found") {
+          let abnbNotFound = {
+            extractionId: extractionRequest.extractionId,
+            source: extractionRequest.source,
+            sourceId: extractionRequest.sourceId,
+            userId: extractionRequest.userId,
+            element: ElementToExtract.NOT_FOUND,
+            companyId: extractionRequest.companyId,
+          };
+          await sendResponse(abnbNotFound, sqs);
+        }
+      } else {
+        let abnbError = {
+          extractionId: extractionRequest.extractionId,
+          source: extractionRequest.source,
+          sourceId: extractionRequest.sourceId,
+          userId: extractionRequest.userId,
+          element: ElementToExtract.ERROR,
+          companyId: extractionRequest.companyId,
+          error: error,
+        };
+        await sendResponse(abnbError, sqs);
+      }
+
+      await browser.close();
+    }
   }
+};
 
+const sendResponse = async (extraction: ExtractionRes, sqs: aws.SQS) => {
+  console.log("Sending response to backend");
+  console.log(JSON.stringify(extraction));
   const params = {
-		MessageBody: JSON.stringify(extraction),
-		QueueUrl: "https://sqs.us-east-1.amazonaws.com/107072109140/backend",
-	};
-	const result = await sqs.sendMessage(params);
-  console.log("result sent back to backend");
-
+    MessageBody: JSON.stringify(extraction),
+    QueueUrl: "https://sqs.us-east-1.amazonaws.com/107072109140/backend",
+  };
+  const result = await sqs.sendMessage(params);
+  console.log("Response sent");
 };

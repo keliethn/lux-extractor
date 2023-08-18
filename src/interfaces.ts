@@ -8,6 +8,7 @@ import {
   ListingGalleryExtraction,
   ListingReviewExtraction,
   ListingSearchExtraction,
+  PriceRangeLookup,
   User,
 } from "./types";
 
@@ -37,6 +38,8 @@ export interface ExtractionRes {
   ambients?: ListingAmbientExtraction[];
   calendar?: ListingCalendarExtraction[];
   search?: ListingSearchExtraction[];
+  lookup?: PriceRangeLookup;
+  error?: string;
   userListings?: ListingSearchExtraction[];
   user?: User;
   vrboListing?: Listing;
@@ -59,8 +62,115 @@ interface sqsMessage {
 }
 
 export interface SearchResponseInitialState {
-  niobeMinimalClientData: [string, object][]; //SearResponse Type... look for index 1
+  niobeMinimalClientData: [string, AbnbSearchResponse][]; //SearResponse Type... look for index 1
 }
+
+export interface HostResponseInitialState {
+  niobeMinimalClientData: [string, AbnbHostResponse][];
+}
+
+export interface AbnbHostResponse {
+  data: {
+    presentation: {
+      userProfileContainer: {
+        userProfile: {
+          about: string;
+          createdAt: string;
+          guestType: string;
+          isHomeHost: boolean;
+          isSuperhost: boolean;
+          managedListingsTotalCount: number;
+          profilePictureUrl: string;
+          smartName: string;
+          reviewsReceivedFromGuests: {
+            count: number;
+          };
+          userId: string;
+          timeAsHost: {
+            years: number;
+            months: number;
+          };
+          timeAsUser: {
+            years: number;
+            months: number;
+          };
+          managedListings: {
+            id: string;
+            bathrooms: number;
+            bedrooms: number;
+            beds: number;
+            nameOrPlaceholderName: string;
+            pictureUrl: string;
+            priceAmountCurrency: {
+              amount: number;
+              currency: string;
+            };
+            propertyTypeId: string;
+            propertyTypeName: string;
+            ratingAverage: number;
+            reviewCount: string;
+          }[];
+        };
+      };
+    };
+  };
+}
+
+export interface AbnbListingSectionsResponse{
+  data:{
+    presentation:{
+      stayProductDetailPage:{
+        sections:{
+           sections:{
+          sectionId:"PHOTO_TOUR_SCROLLABLE_MODAL" |"DESCRIPTION_DEFAULT"| "OVERVIEW_DEFAULT"| "LOCATION_DEFAULT"|"AVAILABILITY_CALENDAR_DEFAULT"|"TITLE_DEFAULT"|"REVIEWS_DEFAULT";
+          section:AbnbListingSectionOverview| AbnbListingSectionDescription| AbnbListingSectionPhotoTour |AbnbListingSectionLocation| AbnbListingSectionCalendar| AbnbListingSectionTitle|AbnbListingSectionReviews
+        }[]
+        }
+       
+      }
+    }
+  }
+}
+
+export interface AbnbListingSectionOverview{
+  detailItems:{title:string}[]
+}
+
+export interface AbnbListingSectionDescription{
+  htmlDescription:{htmlText:string}
+}
+
+export interface AbnbListingSectionPhotoTour{
+  mediaItems:{
+    id:string;
+    orientation:"LANDSCAPE"|"PORTRAIT"
+    baseUrl:string;
+    caption?:string
+  }[]
+}
+
+export interface AbnbListingSectionLocation{
+  lat:number;
+  lng:number;
+}
+
+export interface AbnbListingSectionCalendar{
+  thumbnail:{
+    baseUrl:string
+  };
+  maxGuestCapacity:number
+}
+
+export interface AbnbListingSectionTitle{
+  title:string;
+}
+
+export interface AbnbListingSectionReviews{
+  overallCount:number;
+  overallRating:number;
+}
+
+export interface ListingResponseInitialState {}
 
 export interface AbnbSearchResponse {
   data: {
@@ -122,10 +232,18 @@ export interface StayResultItem {
 export interface AbnbSearchRequest {
   operationName: string; //StaysSearch
   variables: {
-    isInitialLoad: boolean; //true
-    hasLoggedIn: boolean; //false
-    cdnCacheSafe: boolean; //false
-    source: string; // EXPLORE
+    // isInitialLoad: boolean; //true
+    // hasLoggedIn: boolean; //false
+    // cdnCacheSafe: boolean; //false
+    // source: string; // EXPLORE
+    staysMapSearchRequestV2: {
+      requestedPageType: string; // STAYS_SEARCH
+      cursor: string;
+      metadataOnly: boolean; //false
+      searchType: string; // unknown
+      treatmentFlags: string[];
+      rawParams: { filterName: string; filterValues: string[] }[];
+    };
     staysSearchRequest: {
       requestedPageType: string; // STAYS_SEARCH
       cursor: string;
@@ -134,9 +252,9 @@ export interface AbnbSearchRequest {
       treatmentFlags: string[];
       rawParams: { filterName: string; filterValues: string[] }[];
     };
-    staysSearchM3Enabled: boolean; //false
-    staysSearchM6Enabled: boolean; //false
-    feedMapDecoupleEnabled: boolean; //false
+    decomposeCleanupEnabled: boolean; //false
+    decomposeFiltersEnabled: boolean; //false
+    feedMapDecoupleEnabled: boolean; //true
   };
   extensions: {
     persistedQuery: {
@@ -196,3 +314,12 @@ export interface SearchQueryString {
   pagination_search: string;
   cursor: string;
 }
+ // --------------------------------------
+ export interface ListingsBbox{
+    minLat: number;
+    maxLat: number;
+    minLng: number;
+    maxLng: number;
+ }
+
+ export interface ListingsPrice{ min: number; max: number; count: number }

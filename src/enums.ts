@@ -6,16 +6,16 @@ export enum ListingSource{
 }
 
 export enum ElementToExtract{
-    singleListing="singleListing",
-    multipleListing="multipleListing",
-    user="user",
-    reviews="reviews",
-    details="details",
-    gallery="gallery",
-    calendar="calendar",
-    search="search",
-    none="none",
-    lookup="lookup"
+    VRBO_LISTING="VRBO",
+    HOST="HOST",
+    REVIEWS="REVIEWS",
+    LISTING="LISTING",
+    GALLERY="GALLERY",
+    CALENDAR="CALENDAR",
+    SEARCH="SEARCH",
+    PRICE_RANGE_LOOKUP="LOOKUP",
+    ERROR="ERROR",
+    NOT_FOUND="404"
 }
 
 export enum LocationGeoLevel{

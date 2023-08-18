@@ -34,8 +34,8 @@ export const vrboExtraction = async (
     // const listingId=sourceIdArray[0];
     // const sourceId=sourceIdArray[1];
     if (
-      req.element === ElementToExtract.details ||
-      req.element === ElementToExtract.singleListing
+      req.element === ElementToExtract.LISTING ||
+      req.element === ElementToExtract.VRBO_LISTING
     ) {
       await page.goto(`https://www.vrbo.com/${req.sourceId}`, {
         timeout: 80000,
@@ -50,7 +50,7 @@ export const vrboExtraction = async (
     const api = context.request;
     try {
       switch (req.element) {
-        case ElementToExtract.lookup:
+        case ElementToExtract.PRICE_RANGE_LOOKUP:
           let obj = await getElementText(page);
           if (obj !== "") {
             let ob = obj && JSON.parse(obj);
@@ -59,10 +59,10 @@ export const vrboExtraction = async (
             response=await vrboLookup(api,req,listingIdSl,countReviewsSl)
           }
           break;
-        case ElementToExtract.user:
+        case ElementToExtract.HOST:
           response = await vrboUser(api, req);
           break;
-        case ElementToExtract.details:
+        case ElementToExtract.LISTING:
           let detailsObj = await getElementText(page);
           let dobj = detailsObj && JSON.parse(detailsObj);
           let countReviewsDetails = dobj.reviewsReducer.reviewCount;
@@ -74,19 +74,19 @@ export const vrboExtraction = async (
             countReviewsDetails
           );
           break;
-        case ElementToExtract.reviews:
+        case ElementToExtract.REVIEWS:
           response = await vrboReviews(api, req);
           break;
-        case ElementToExtract.calendar:
+        case ElementToExtract.CALENDAR:
           response = await vrboCalendar(api, req);
           break;
-        case ElementToExtract.gallery:
+        case ElementToExtract.GALLERY:
           response = await vrboGallery(api, req);
           break;
-        case ElementToExtract.search:
+        case ElementToExtract.SEARCH:
           response = await vrboSearch(page, api, req);
           break;
-        case ElementToExtract.singleListing:
+        case ElementToExtract.VRBO_LISTING:
           let slObj = await getElementText(page);
           if (slObj !== "") {
             let sobj = slObj && JSON.parse(slObj);

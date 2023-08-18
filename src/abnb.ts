@@ -4,6 +4,16 @@ import {
   ExtractionRes,
   SearchQueryString,
   AbnbSearchResponse,
+  SearchResponseInitialState,
+  HostResponseInitialState,
+  AbnbListingSectionsResponse,
+  AbnbListingSectionOverview,
+  AbnbListingSectionDescription,
+  AbnbListingSectionLocation,
+  AbnbListingSectionPhotoTour,
+  AbnbListingSectionTitle,
+  AbnbListingSectionCalendar,
+  AbnbListingSectionReviews,
 } from "./interfaces";
 import {
   AbnbUser,
@@ -19,11 +29,17 @@ import {
   Abnb_getListings,
   Abnb_getListingSearch,
   Abnb_getReviews,
-  Abnb_getUser,
+  Abnb_getHost,
   saveRemoteImagesToS3,
+  Abnb_getPriceRanges,
+  priceRangeLookup,
+  HtmlLookup,
 } from "./fn";
 import { DateTime } from "luxon";
 import { APIRequestContext, Browser, Page } from "playwright-chromium";
+
+import fs from "fs";
+import { ListingTemplate } from "./templates/ListingTemplate";
 
 export const abnbExtraction = async (
   browser: Browser,
@@ -35,48 +51,91 @@ export const abnbExtraction = async (
     const page = await browser.newPage();
     const context = page.context();
 
-    if (req.element !== ElementToExtract.search) {
-      await page.goto(`https://www.airbnb.com/rooms/${req.sourceId}`, {
+    // Intercept network requests
+    await context.route("**/*.{png,jpg,jpeg,gif}", (route) => {
+      route.abort();
+    });
+
+    if (
+      req.element === ElementToExtract.SEARCH ||
+      req.element === ElementToExtract.PRICE_RANGE_LOOKUP
+    ) {
+      let coordinates: {
+        minLat: number;
+        maxLat: number;
+        minLng: number;
+        maxLng: number;
+      } | null = null;
+
+      let bbox = req.sourceData.find((x) => x.key === "bbox");
+
+      if (bbox !== undefined) {
+        coordinates = JSON.parse(bbox.value);
+      }
+      if (req.element === ElementToExtract.PRICE_RANGE_LOOKUP) {
+        await page.goto(
+          `https://www.airbnb.com/s/Hello/homes?ne_lat=${coordinates.maxLng}&ne_lng=${coordinates.maxLat}&sw_lat=${coordinates.minLng}&sw_lng=${coordinates.minLat}`,
+          {
+            timeout: 60000,
+          }
+        );
+      } else {
+        let prices: { min: number; max: number; count: number } | null = null;
+
+        let pricesData = req.sourceData.find((x) => x.key === "prices");
+        if (pricesData !== undefined) {
+          prices = JSON.parse(pricesData.value);
+
+          await page.goto(
+            `https://www.airbnb.com/s/Hello/homes?ne_lat=${coordinates.maxLat}&ne_lng=${coordinates.maxLng}&sw_lat=${coordinates.minLat}&sw_lng=${coordinates.minLng}&price_min=${prices.min}&price_max=${prices.max}`,
+            {
+              timeout: 60000,
+            }
+          );
+        }
+      }
+
+      await page.waitForLoadState("networkidle");
+    } else if (req.element === ElementToExtract.HOST) {
+      await page.goto(`https://www.airbnb.com/users/show/${req.sourceId}`, {
         timeout: 60000,
       });
     } else {
-      await page.goto(`https://www.airbnb.com/s/${req.sourceId}/homes`, {
+      await page.goto(`https://www.airbnb.com/rooms/${req.sourceId}`, {
         timeout: 60000,
       });
     }
 
-    await page.waitForLoadState("networkidle");
-
     const api = context.request;
     try {
       switch (req.element) {
-        case ElementToExtract.lookup:
-          response = await abnbLookup(api, req);
+        case ElementToExtract.PRICE_RANGE_LOOKUP:
+          response = await abnbLookup(page, req);
           break;
-        case ElementToExtract.user:
-          response = await abnbUser(api, req);
+        case ElementToExtract.HOST:
+          response = await abnbUser(page, req);
           break;
-        case ElementToExtract.multipleListing:
-          response = await abnbMultipleListing(api, req);
+        // case ElementToExtract.multipleListing:
+        //   response = await abnbMultipleListing(api, req);
+        //   break;
+        case ElementToExtract.LISTING:
+          response = await abnbDetails(page, req);
           break;
-        case ElementToExtract.details:
-          response = await abnbDetails(api, req);
-          break;
-        case ElementToExtract.reviews:
+        case ElementToExtract.REVIEWS:
           response = await abnbReviews(api, req);
           break;
-        case ElementToExtract.calendar:
+        case ElementToExtract.CALENDAR:
           response = await abnbCalendar(api, req);
           break;
-        case ElementToExtract.gallery:
+        case ElementToExtract.GALLERY:
           response = await abnbGallery(api, req);
           break;
-        case ElementToExtract.search:
+        case ElementToExtract.SEARCH:
           response = await abnbSearch(page, api, req);
           break;
-        case ElementToExtract.singleListing:
-          response = await abnbSingleListing(api, req);
-          break;
+        // case ElementToExtract.singleListing:
+        //   response = await abnbSingleListing(api, req);
+        //   break;
         default:
           break;
       }
@@ -89,7 +148,7 @@ export const abnbExtraction = async (
 };
 
 const abnbLookup = async (
-  api: APIRequestContext,
+  page: Page,
   req: ExtractionReq
 ): Promise<ExtractionRes> => {
   let response: ExtractionRes = {
@@ -97,28 +156,52 @@ const abnbLookup = async (
     source: req.source,
     sourceId: req.sourceId,
     userId: req.userId,
-    element: ElementToExtract.search,
+    element: ElementToExtract.PRICE_RANGE_LOOKUP,
     companyId: req.companyId,
   };
 
-  let unit = await Abnb_getListing(api, req.sourceId);
+  let coordinates: {
+    minLat: number;
+    maxLat: number;
+    minLng: number;
+    maxLng: number;
+  } | null = null;
 
-  let hostId = unit.listing.primary_host.id;
+  let bbox = req.sourceData.find((x) => x.key === "bbox");
 
-  let host = await Abnb_getUser(api, hostId.toString());
+  if (bbox !== undefined) {
+    coordinates = JSON.parse(bbox.value);
+  }
 
-  let hostListings = await Abnb_getListings(
-    api,
-    hostId.toString(),
-    host.user.listings_count
-  );
+  page.click('button[data-testid="category-bar-filter-button"]');
 
-  response.search = hostListings;
+  await page.waitForLoadState("networkidle");
+
+  let inputMin = await page.getAttribute("#price_filter_min", "value");
+
+  let inputMax = await page.getAttribute("#price_filter_max", "value");
+
+  if (inputMin !== null && inputMax !== null) {
+    let ranges = await priceRangeLookup(
+      parseInt(inputMin),
+      parseInt(inputMax),
+      page
+    );
+
+    response.lookup = {
+      neLat: coordinates.maxLng,
+      neLng: coordinates.maxLat,
+      swLat: coordinates.minLng,
+      swLng: coordinates.minLat,
+      ranges: ranges,
+    };
+  }
+
   return response;
 };
 
 const abnbUser = async (
-  api: APIRequestContext,
+  page: Page,
   req: ExtractionReq
 ): Promise<ExtractionRes> => {
   let response: ExtractionRes = {
@@ -129,19 +212,26 @@ const abnbUser = async (
     element: req.element,
     companyId: req.companyId,
   };
-  let usr = await Abnb_getUser(api, req.sourceId);
+
+  const dataStateText = await page.locator("#data-state").textContent();
+  const dataStateJson = JSON.parse(dataStateText) as HostResponseInitialState;
+
+  let rawUser = dataStateJson.niobeMinimalClientData.filter(
+    (x) => x[0].indexOf("GetUserProfile") > -1
+  )[0][1].data.presentation.userProfileContainer.userProfile;
+
   response.host = {
-    id: usr.user.id.toString(),
-    firstName: usr.user.first_name,
+    id: rawUser.userId,
+    firstName: rawUser.smartName,
     lastName: "",
-    about: usr.user.about,
-    listingsCount: usr.user.listings_count,
-    totalListingsCount: usr.user.total_listings_count,
-    pictureUrl: usr.user.picture_url,
-    thumbnailUrl: usr.user.thumbnail_url,
-    createdAt: DateTime.fromISO(usr.user.created_at).toJSDate(),
-    revieweeCount: usr.user.reviewee_count,
-    isSuperhost: true,
+    about: rawUser.about,
+    listingsCount: rawUser.managedListings.length,
+    totalListingsCount: rawUser.managedListingsTotalCount,
+    pictureUrl: rawUser.profilePictureUrl.split("?")[0],
+    thumbnailUrl: rawUser.profilePictureUrl.split("?")[0],
+    createdAt: DateTime.fromISO(rawUser.createdAt).toJSDate(),
+    revieweeCount: rawUser.reviewsReceivedFromGuests.count,
+    isSuperhost: rawUser.isSuperhost,
   };
 
   return response;
@@ -182,7 +272,7 @@ const abnbSingleListing = async (
   let unit = await Abnb_getListing(api, req.sourceId);
   let usr: AbnbUser;
   if (unit.listing !== undefined) {
-    usr = await Abnb_getUser(api, unit.listing.primary_host.id.toString());
+    usr = await Abnb_getHost(api, unit.listing.primary_host.id.toString());
     response.host = {
       id: unit.listing.primary_host.id.toString(),
       firstName: unit.listing.primary_host.first_name,
@@ -242,9 +332,9 @@ const abnbSingleListing = async (
       unit.listing.reviews_count
     );
 
-    let rev:ListingReviewExtraction[]=[];
+    let rev: ListingReviewExtraction[] = [];
 
-    reviews.forEach(x=>{
+    reviews.forEach((x) => {
       x.data.merlin.pdpReviews.reviews.map((review) => {
         let response: ListingReviewExtraction = {
           reviewId: review.id,
@@ -254,11 +344,11 @@ const abnbSingleListing = async (
           comment: review.comments,
           response: review.response,
         };
-        rev.push(response)
+        rev.push(response);
       });
-    })
+    });
 
-    response.reviews = rev
+    response.reviews = rev;
 
     let dateStart = DateTime.now().setZone(process.env.timezone);
     let dateEnd = dateStart.plus({ months: 12 });
@@ -298,75 +388,200 @@ const abnbSingleListing = async (
 };
 
 const abnbDetails = async (
-  api: APIRequestContext,
+  page: Page,
   req: ExtractionReq
 ): Promise<ExtractionRes> => {
-  let response: ExtractionRes = {
-    extractionId: req.extractionId,
-    source: req.source,
-    sourceId: req.sourceId,
-    userId: req.userId,
-    element: req.element,
-    companyId: req.companyId,
-  };
-  let unit = await Abnb_getListing(api, req.sourceId);
-  let usr = await Abnb_getUser(api, unit.listing.primary_host.id.toString());
+  return new Promise(async (resolve, _) => {
+    let response: ExtractionRes = {
+      extractionId: req.extractionId,
+      source: req.source,
+      sourceId: req.sourceId,
+      userId: req.userId,
+      element: req.element,
+      companyId: req.companyId,
+    };
 
-  response.host = {
-    id: unit.listing.primary_host.id.toString(),
-    firstName: unit.listing.primary_host.first_name,
-    lastName: unit.listing.primary_host.last_name,
-    about: usr.user.about,
-    listingsCount: usr.user.listings_count,
-    totalListingsCount: usr.user.total_listings_count,
-    pictureUrl: unit.listing.primary_host.picture_url,
-    thumbnailUrl: unit.listing.primary_host.thumbnail_url,
-    createdAt: DateTime.fromISO(
-      unit.listing.primary_host.created_at
-    ).toJSDate(),
-    revieweeCount: unit.listing.primary_host.reviewee_count,
-    isSuperhost: unit.listing.primary_host.is_superhost,
-  };
+    let source = await page
+      .locator("div[data-section-id='BOOK_IT_SIDEBAR']")
+      .textContent();
 
-  // get thumbnail image name
-  let thumbnailImgName: string;
-  if (unit.listing.thumbnail_url) {
-    let imgArrayRaw = unit.listing.thumbnail_url.split("?");
-    let imgOrigin = imgArrayRaw[0];
+    let test = HtmlLookup(source, ListingTemplate);
 
-    let imgNameRaw = imgOrigin.split("/");
+    console.log(test);
 
-    thumbnailImgName = `${unit.listing.id}-${imgNameRaw[imgNameRaw.length - 1]
-      .replace(".jpg", ".webp")
-      .replace(".jpeg", ".webp")}`;
-  }
+    // const dataStateText = await page.locator("#data-state").textContent();
+    // const dataStateJson = JSON.parse(dataStateText) as HostResponseInitialState;
 
-  response.details = {
-    baths: unit.listing.bathrooms,
-    bedrooms: unit.listing.bedrooms,
-    beds: unit.listing.beds,
-    costPerNight: unit.listing.price,
-    maxOccupancy: unit.listing.person_capacity,
-    description: unit.listing.description,
-    title: unit.listing.name,
-    reviews: unit.listing.reviews_count,
-    lat: unit.listing.lat,
-    lng: unit.listing.lng,
-    type: unit.listing.property_type,
-    roomType: unit.listing.room_type_category,
-    thumbnail: thumbnailImgName,
-    photos: unit.listing.photos.map((x) => {
-      let response: ListingGalleryExtraction = {
-        imageId: x.id.toString(),
-        origin: x.xl_picture,
-        objectKey: "",
-        caption: x.caption,
-      };
-      return response;
-    }),
-  };
+    // fs.writeFile("test.json", dataStateText, { encoding: "utf-8" }, (err) => {
+    //   console.log(err);
+    // });
+    // console.log(dataStateText);
+    // let rawUser = dataStateJson.niobeMinimalClientData.filter(
+    //   (x) => x[0].indexOf("GetUserProfile") > -1
+    // )[0][1].data.presentation.userProfileContainer.userProfile;
 
-  return response;
+    page.route("**", (route) => {
+      let url = route.request().url();
+      console.log("route", url);
+      let method = route.request().method().toLowerCase();
+      let modifiedBody = "";
+      if (url.indexOf("https://www.airbnb.com/api/v3/StaysPdpSections") > -1) {
+        let lookup = `%22sectionIds%22%3A%5B%22BOOK_IT_CALENDAR_SHEET%22%2C%22BOOK_IT_FLOATING_FOOTER%22%2C%22EDUCATION_FOOTER_BANNER_MODAL%22%2C%22POLICIES_DEFAULT%22%2C%22BOOK_IT_SIDEBAR%22%2C%22URGENCY_COMMITMENT_SIDEBAR%22%2C%22BOOK_IT_NAV%22%2C%22EDUCATION_FOOTER_BANNER%22%2C%22URGENCY_COMMITMENT%22%2C%22CANCELLATION_POLICY_PICKER_MODAL%22%5D`;
+        let replaceString = `%22sectionIds%22%3A%5B%22BOOK_IT_CALENDAR_SHEET%22%2C%22BOOK_IT_FLOATING_FOOTER%22%2C%22EDUCATION_FOOTER_BANNER_MODAL%22%2C%22POLICIES_DEFAULT%22%2C%22BOOK_IT_SIDEBAR%22%2C%22URGENCY_COMMITMENT_SIDEBAR%22%2C%22BOOK_IT_NAV%22%2C%22EDUCATION_FOOTER_BANNER%22%2C%22URGENCY_COMMITMENT%22%2C%22CANCELLATION_POLICY_PICKER_MODAL%22%2C%22OVERVIEW_DEFAULT%22%2C%22TITLE_DEFAULT%22%2C%22DESCRIPTION_DEFAULT%22%2C%22PHOTO_TOUR_SCROLLABLE_MODAL%22%2C%22LOCATION_DEFAULT%22%2C%22AVAILABILITY_CALENDAR_DEFAULT%22%2C%22REVIEWS_DEFAULT%22%5D`;
+
+        let newUrl = url.replace(lookup, replaceString);
+        console.log("newUrl", newUrl);
+
+        route.continue({ url: newUrl });
+      }
+    });
+
+    page.on("response", (r) => {
+      let url = r.url();
+
+      if (
+        url.trim().indexOf("https://www.airbnb.com/api/v3/StaysPdpSections") >
+        -1
+      ) {
+        console.log("url", url.trim());
+        r.body().then(async (b) => {
+          let sections = JSON.parse(
+            b.toString()
+          ) as AbnbListingSectionsResponse;
+
+          //console.log(sections.data.presentation.stayProductDetailPage.sections.sections)
+
+          const overview =
+            sections.data.presentation.stayProductDetailPage.sections.sections.find(
+              (x) => x.sectionId === "OVERVIEW_DEFAULT"
+            );
+
+          const title =
+            sections.data.presentation.stayProductDetailPage.sections.sections.find(
+              (x) => x.sectionId === "TITLE_DEFAULT"
+            );
+
+          const description =
+            sections.data.presentation.stayProductDetailPage.sections.sections.find(
+              (x) => x.sectionId === "DESCRIPTION_DEFAULT"
+            );
+          const photos =
+            sections.data.presentation.stayProductDetailPage.sections.sections.find(
+              (x) => x.sectionId === "PHOTO_TOUR_SCROLLABLE_MODAL"
+            );
+          const location =
+            sections.data.presentation.stayProductDetailPage.sections.sections.find(
+              (x) => x.sectionId === "LOCATION_DEFAULT"
+            );
+
+          const calendar =
+            sections.data.presentation.stayProductDetailPage.sections.sections.find(
+              (x) => x.sectionId === "AVAILABILITY_CALENDAR_DEFAULT"
+            );
+
+          const reviews =
+            sections.data.presentation.stayProductDetailPage.sections.sections.find(
+              (x) => x.sectionId === "REVIEWS_DEFAULT"
+            );
+
+          console.log(overview);
+          console.log(description);
+          console.log(photos);
+          console.log(location);
+          console.log(calendar);
+          console.log(title);
+          console.log(reviews);
+
+          if (
+            overview !== undefined &&
+            description !== undefined &&
+            photos !== undefined &&
+            location !== undefined &&
+            calendar !== undefined &&
+            title !== undefined &&
+            reviews !== undefined
+          ) {
+            let oSectionGuests = (
+              overview.section as AbnbListingSectionOverview
+            ).detailItems.find((x) => x.title.indexOf("guest") > -1);
+            let oSectionBedrooms = (
+              overview.section as AbnbListingSectionOverview
+            ).detailItems.find((x) => x.title.indexOf("bedrooms") > -1);
+            let oSectionBeds = (
+              overview.section as AbnbListingSectionOverview
+            ).detailItems.find((x) => x.title.indexOf("beds") > -1);
+            let oSectionBaths = (
+              overview.section as AbnbListingSectionOverview
+            ).detailItems.find((x) => x.title.indexOf("bath") > -1);
+            let guests = 0;
+            let bedrooms = 0;
+            let beds = 0;
+            let baths = 0;
+            if (oSectionGuests !== undefined) {
+              guests = parseInt(oSectionGuests.title.split(" ")[0]);
+            }
+            if (oSectionBedrooms !== undefined) {
+              bedrooms = parseInt(oSectionBedrooms.title.split(" ")[0]);
+            }
+            if (oSectionBeds !== undefined) {
+              beds = parseInt(oSectionBeds.title.split(" ")[0]);
+            }
+            if (oSectionBaths !== undefined) {
+              baths = parseInt(oSectionBaths.title.split(" ")[0]);
+            }
+
+            let dSectionDescription = (
+              description.section as AbnbListingSectionDescription
+            ).htmlDescription.htmlText;
+
+            let tSectionTitle = (title.section as AbnbListingSectionTitle)
+              .title;
+
+            let lSectionLocation =
+              location.section as AbnbListingSectionLocation;
+
+            let pSectionPhotos = (photos.section as AbnbListingSectionPhotoTour)
+              .mediaItems;
+
+            let cSectionCalendar =
+              calendar.section as AbnbListingSectionCalendar;
+
+            let rSectionReviews = reviews.section as AbnbListingSectionReviews;
+
+            // let selectedRoom = rawUser.managedListings.find(
+            //   (x) => x.id === req.sourceId
+            // );
+            // if (selectedRoom !== undefined) {
+            response.details = {
+              baths: baths,
+              bedrooms: bedrooms,
+              beds: beds,
+              costPerNight: 0, //parseInt(test["price"]),
+              maxOccupancy: guests,
+              description: dSectionDescription,
+              title: tSectionTitle,
+              reviews: rSectionReviews.overallCount,
+              lat: lSectionLocation.lat,
+              lng: lSectionLocation.lng,
+              thumbnail: cSectionCalendar.thumbnail.baseUrl.split("?")[0],
+              photos: pSectionPhotos.map((x) => {
+                let response: ListingGalleryExtraction = {
+                  imageId: x.id.toString(),
+                  origin: x.baseUrl,
+                  objectKey: "",
+                  caption: x.caption,
+                };
+                return response;
+              }),
+            };
+            //}
+
+            resolve(response);
+          }
+        });
+      }
+    });
+  });
 };
 
 const abnbReviews = async (
@@ -391,22 +606,22 @@ const abnbReviews = async (
       unit.listing.reviews_count
     );
 
-    let rev:ListingReviewExtraction[]=[];
-    reviews.forEach(x=>{
-        x.data.merlin.pdpReviews.reviews.forEach((review) => {
-          let response: ListingReviewExtraction = {
-            reviewId: review.id,
-            rating: review.rating,
-            date: DateTime.fromISO(review.createdAt).toJSDate(),
-            author: review.reviewer.firstName,
-            comment: review.comments,
-            response: review.response,
-          };
-          rev.push(response)
-        });
-    })
+    let rev: ListingReviewExtraction[] = [];
+    reviews.forEach((x) => {
+      x.data.merlin.pdpReviews.reviews.forEach((review) => {
+        let response: ListingReviewExtraction = {
+          reviewId: review.id,
+          rating: review.rating,
+          date: DateTime.fromISO(review.createdAt).toJSDate(),
+          author: review.reviewer.firstName,
+          comment: review.comments,
+          response: review.response,
+        };
+        rev.push(response);
+      });
+    });
 
-    response.reviews = rev
+    response.reviews = rev;
   }
 
   return response;
@@ -426,17 +641,16 @@ const abnbCalendar = async (
   };
 
   let dateStart = DateTime.now().setZone(process.env.timezone);
-  let unit=await Abnb_getListing(api,req.sourceId);
-  if(unit!==null){
-
-    let dateEnd = dateStart.plus({ days: unit.listing.max_nights_input_value});
+  let unit = await Abnb_getListing(api, req.sourceId);
+  if (unit !== null) {
+    let dateEnd = dateStart.plus({ days: unit.listing.max_nights_input_value });
     let availability = await Abnb_getAvailalibity(
       api,
       req.sourceId,
       dateStart.toFormat("yyyy-MM-dd"),
       dateEnd.toFormat("yyyy-MM-dd")
     );
-  
+
     if (availability.calendar !== undefined) {
       response.calendar = availability.calendar.days.map((d) => {
         let r: ListingCalendarExtraction = {
@@ -488,37 +702,155 @@ const abnbSearch = async (
   api: APIRequestContext,
   req: ExtractionReq
 ): Promise<ExtractionRes> => {
-  let response: ExtractionRes = {
-    extractionId: req.extractionId,
-    source: req.source,
-    sourceId: req.sourceId,
-    userId: req.userId,
-    element: req.element,
-    companyId: req.companyId,
-  };
+  return new Promise(async (resolve, reject) => {
+    let response: ExtractionRes = {
+      extractionId: req.extractionId,
+      source: req.source,
+      sourceId: req.sourceId,
+      userId: req.userId,
+      element: req.element,
+      companyId: req.companyId,
+    };
+    let prices: {
+      min: number;
+      max: number;
+      count: number;
+    } | null = null;
+    let pricesData = req.sourceData.find((x) => x.key === "prices");
+    if (pricesData !== undefined) {
+      prices = JSON.parse(pricesData.value);
+    }
+    let listings: ListingSearchExtraction[] = [];
+    const totalPages = Math.ceil(prices.count / 18);
+    const nextBtnSelector = "a[aria-label='Next']";
+    const nextBtn = page.locator(nextBtnSelector).nth(0);
 
-  const starterBtnSelector = "a[aria-label='Next']";
-  const starterBtn = page.locator(starterBtnSelector).nth(0);
+    const deferredStateText = await page
+      .locator("#data-deferred-state")
+      .textContent();
+    const deferredStateJson = JSON.parse(
+      deferredStateText
+    ) as SearchResponseInitialState;
 
-  if (starterBtn) {
-    let href = await starterBtn.getAttribute("href");
-    let queryString = href.split("?")[1];
-    const urlParams = new URLSearchParams(queryString);
-    const entries = urlParams.entries();
-    const params = paramsToObject(entries);
+    let initialSearchData: ListingSearchExtraction[] =
+      deferredStateJson.niobeMinimalClientData[0][1].data.presentation.explore.sections.sectionIndependentData.staysSearch.searchResults
+        .map((x) => {
+          let item: ListingSearchExtraction | null = null;
+          if (x.listing !== undefined) {
+            item = {
+              isNew:
+                x.listing.avgRatingLocalized === null
+                  ? false
+                  : x.listing.avgRatingLocalized.toLowerCase() === "new"
+                  ? true
+                  : false,
+              avgRating:
+                x.listing.avgRatingLocalized === null
+                  ? 0
+                  : x.listing.avgRatingLocalized.toLowerCase() === "new"
+                  ? 0
+                  : parseFloat(x.listing.avgRatingLocalized.split(" ")[0]),
+              coordinate: {
+                latitude: x.listing.coordinate.latitude,
+                longitude: x.listing.coordinate.longitude,
+              },
+              id: x.listing.id,
+              name: x.listing.name,
+              price:
+                x.pricingQuote.structuredStayDisplayPrice.primaryLine.price ===
+                undefined
+                  ? parseFloat(
+                      x.pricingQuote.structuredStayDisplayPrice.primaryLine.originalPrice
+                        .replace("USD", "")
+                        .replace("$", "")
+                        .trim()
+                    )
+                  : parseFloat(
+                      x.pricingQuote.structuredStayDisplayPrice.primaryLine.price
+                        .replace("USD", "")
+                        .replace("$", "")
+                        .trim()
+                    ),
+            };
+          }
+          return item;
+        })
+        .filter((x) => x !== null);
 
-    let sha256HashAndCursors = await getSha256HashAndCursors(page);
+    listings.push(...initialSearchData);
+    if (nextBtn) {
+      let currentPage = 1;
+      while (currentPage < totalPages) {
+        await nextBtn.click();
 
-    let searchResult = await getSearch(
-      api,
-      params.federated_search_session_id,
-      sha256HashAndCursors
-    );
+        page.on("response", (r) => {
+          let url = r.url();
+          if (
+            url.trim().indexOf("https://www.airbnb.com/api/v3/StaysSearch") > -1
+          ) {
+            r.body().then(async (b) => {
+              let search = JSON.parse(b.toString()) as AbnbSearchResponse;
+              //console.log(JSON.stringify(search));
+              let data =
+                search.data.presentation.explore.sections.sectionIndependentData.staysSearch.searchResults
+                  .map((x) => {
+                    let item: ListingSearchExtraction | null = null;
+                    if (x.listing !== undefined) {
+                      item = {
+                        isNew:
+                          x.listing.avgRatingLocalized === null
+                            ? false
+                            : x.listing.avgRatingLocalized.toLowerCase() ===
+                              "new"
+                            ? true
+                            : false,
+                        avgRating:
+                          x.listing.avgRatingLocalized === null
+                            ? 0
+                            : x.listing.avgRatingLocalized.toLowerCase() ===
+                              "new"
+                            ? 0
+                            : parseFloat(
+                                x.listing.avgRatingLocalized.split(" ")[0]
+                              ),
+                        coordinate: {
+                          latitude: x.listing.coordinate.latitude,
+                          longitude: x.listing.coordinate.longitude,
+                        },
+                        id: x.listing.id,
+                        name: x.listing.name,
+                        price:
+                          x.pricingQuote.structuredStayDisplayPrice.primaryLine
+                            .price === undefined
+                            ? parseFloat(
+                                x.pricingQuote.structuredStayDisplayPrice.primaryLine.originalPrice
+                                  .replace("USD", "")
+                                  .replace("$", "")
+                                  .trim()
+                              )
+                            : parseFloat(
+                                x.pricingQuote.structuredStayDisplayPrice.primaryLine.price
+                                  .replace("USD", "")
+                                  .replace("$", "")
+                                  .trim()
+                              ),
+                      };
+                    }
 
-    response.search = searchResult;
-  }
+                    return item;
+                  })
+                  .filter((x) => x !== null);
+              listings.push(...data);
+              currentPage++;
+            });
+          }
+        });
+      }
 
-  return response;
+      response.search = listings;
+      resolve(response);
+    }
+  });
 };
 
 const paramsToObject = (entries: IterableIterator<[string, string]>) => {
@@ -551,18 +883,51 @@ const abnbSearchRequestResultPage = async (page: Page) => {
 };
 
 const getSha256HashAndCursors = (
-  page: Page
+  page: Page,
+  sourceData: {
+    key: string;
+    value: string;
+  }[]
 ): Promise<{
   success: boolean;
   hash: string;
-  placeId: string;
   query: string[];
   cursors: string[];
+  priceMin: string;
+  priceMax: string;
+  neLat: string;
+  neLng: string;
+  swLat: string;
+  swLng: string;
 }> => {
   return new Promise(async (resolve, reject) => {
     let h: string = "";
     let p: string = "";
     let q: string[] = [];
+
+    let coordinates: {
+      minLat: number;
+      maxLat: number;
+      minLng: number;
+      maxLng: number;
+    } | null = null;
+
+    let prices: {
+      min: number;
+      max: number;
+      count: number;
+    } | null = null;
+
+    let bbox = sourceData.find((x) => x.key === "bbox");
+    let pricesData = sourceData.find((x) => x.key === "prices");
+    if (bbox !== undefined) {
+      coordinates = JSON.parse(bbox.value);
+    }
+
+    if (pricesData !== undefined) {
+      prices = JSON.parse(pricesData.value);
+    }
+
     page.route("**", (route) => {
       let url = route.request().url();
       let method = route.request().method().toLowerCase();
@@ -613,11 +978,16 @@ const getSha256HashAndCursors = (
           resolve({
             success: true,
             hash: h,
-            placeId: p,
             query: q,
             cursors:
               obj.data.presentation.explore.sections.sectionIndependentData
                 .staysSearch.paginationInfo.pageCursors,
+            swLat: `${coordinates.minLat}`,
+            swLng: `${coordinates.minLng}`,
+            neLat: `${coordinates.maxLat}`,
+            neLng: `${coordinates.maxLng}`,
+            priceMin: `${prices.min}`,
+            priceMax: `${prices.max}`,
           });
         });
       }
@@ -637,7 +1007,12 @@ const getSearch = (
   data: {
     success: boolean;
     hash: string;
-    placeId: string;
+    priceMin: string;
+    priceMax: string;
+    neLat: string;
+    neLng: string;
+    swLat: string;
+    swLng: string;
     query: string[];
     cursors: string[];
   }
@@ -648,30 +1023,27 @@ const getSearch = (
       let newRequest: AbnbSearchRequest = {
         operationName: "StaysSearch",
         variables: {
-          isInitialLoad: true,
-          hasLoggedIn: false,
-          cdnCacheSafe: false,
-          source: "EXPLORE",
-          staysSearchRequest: {
+          // isInitialLoad: true,
+          // hasLoggedIn: false,
+          // cdnCacheSafe: false,
+          // source: "EXPLORE",
+          staysMapSearchRequestV2: {
             requestedPageType: "STAYS_SEARCH",
             cursor: currentCursor,
             metadataOnly: false,
             searchType: "unknown",
             treatmentFlags: [
               "decompose_stays_search_m2_treatment",
+              "decompose_stays_search_m3_treatment",
+              "decompose_stays_search_m3_5_treatment",
               "flex_destinations_june_2021_launch_web_treatment",
               "new_filter_bar_v2_fm_header",
-              "new_filter_bar_v2_and_fm_treatment",
-              "merch_header_breakpoint_expansion_web",
               "flexible_dates_12_month_lead_time",
-              "storefronts_nov23_2021_homepage_web_treatment",
               "lazy_load_flex_search_map_compact",
               "lazy_load_flex_search_map_wide",
               "im_flexible_may_2022_treatment",
-              "im_flexible_may_2022_treatment",
-              "flex_v2_review_counts_treatment",
               "search_add_category_bar_ui_ranking_web",
-              "p2_grid_updates_web_v2",
+              "feed_map_decouple_m11_treatment",
               "flexible_dates_options_extend_one_three_seven_days",
               "super_date_flexibility",
               "micro_flex_improvements",
@@ -681,30 +1053,119 @@ const getSearch = (
             ],
             rawParams: [
               { filterName: "cdnCacheSafe", filterValues: ["false"] },
+              { filterName: "channel", filterValues: ["EXPLORE"] },
               {
                 filterName: "federatedSearchSessionId",
                 filterValues: [sessionId],
               },
               { filterName: "flexibleTripLengths", filterValues: ["one_week"] },
-              { filterName: "hasLoggedIn", filterValues: ["false"] },
-              { filterName: "isInitialLoad", filterValues: ["true"] },
-              { filterName: "itemsPerGrid", filterValues: ["40"] },
+              { filterName: "itemsPerGrid", filterValues: ["18"] },
+              { filterName: "monthlyLength", filterValues: ["3"] },
+              { filterName: "monthlyStartDate", filterValues: ["2023-08-01"] },
               {
-                filterName: "placeId",
-                filterValues: [data.placeId],
+                filterName: "neLat",
+                filterValues: [data.neLat],
+              },
+              {
+                filterName: "neLng",
+                filterValues: [data.neLng],
               },
               { filterName: "priceFilterInputType", filterValues: ["0"] },
               { filterName: "priceFilterNumNights", filterValues: ["5"] },
+              {
+                filterName: "priceMax",
+                filterValues: [data.priceMax],
+              },
+              {
+                filterName: "priceMin",
+                filterValues: [data.priceMin],
+              },
               { filterName: "query", filterValues: data.query },
               { filterName: "refinementPaths", filterValues: ["/homes"] },
               { filterName: "screenSize", filterValues: ["large"] },
+              {
+                filterName: "swLat",
+                filterValues: [data.swLat],
+              },
+              {
+                filterName: "swLng",
+                filterValues: [data.swLng],
+              },
               { filterName: "tabId", filterValues: ["home_tab"] },
               { filterName: "version", filterValues: ["1.8.3"] },
             ],
           },
-          staysSearchM3Enabled: false,
-          staysSearchM6Enabled: false,
-          feedMapDecoupleEnabled: false,
+          staysSearchRequest: {
+            requestedPageType: "STAYS_SEARCH",
+            cursor: currentCursor,
+            metadataOnly: false,
+            searchType: "unknown",
+            treatmentFlags: [
+              "decompose_stays_search_m2_treatment",
+              "decompose_stays_search_m3_treatment",
+              "decompose_stays_search_m3_5_treatment",
+              "flex_destinations_june_2021_launch_web_treatment",
+              "new_filter_bar_v2_fm_header",
+              "flexible_dates_12_month_lead_time",
+              "lazy_load_flex_search_map_compact",
+              "lazy_load_flex_search_map_wide",
+              "im_flexible_may_2022_treatment",
+              "search_add_category_bar_ui_ranking_web",
+              "feed_map_decouple_m11_treatment",
+              "flexible_dates_options_extend_one_three_seven_days",
+              "super_date_flexibility",
+              "micro_flex_improvements",
+              "micro_flex_show_by_default",
+              "search_input_placeholder_phrases",
+              "pets_fee_treatment",
+            ],
+            rawParams: [
+              { filterName: "cdnCacheSafe", filterValues: ["false"] },
+              { filterName: "channel", filterValues: ["EXPLORE"] },
+              {
+                filterName: "federatedSearchSessionId",
+                filterValues: [sessionId],
+              },
+              { filterName: "flexibleTripLengths", filterValues: ["one_week"] },
+              { filterName: "itemsPerGrid", filterValues: ["18"] },
+              { filterName: "monthlyLength", filterValues: ["3"] },
+              { filterName: "monthlyStartDate", filterValues: ["2023-08-01"] },
+              {
+                filterName: "neLat",
+                filterValues: [data.neLat],
+              },
+              {
+                filterName: "neLng",
+                filterValues: [data.neLng],
+              },
+              { filterName: "priceFilterInputType", filterValues: ["0"] },
+              { filterName: "priceFilterNumNights", filterValues: ["5"] },
+              {
+                filterName: "priceMax",
+                filterValues: [data.priceMax],
+              },
+              {
+                filterName: "priceMin",
+                filterValues: [data.priceMin],
+              },
+              { filterName: "query", filterValues: data.query },
+              { filterName: "refinementPaths", filterValues: ["/homes"] },
+              { filterName: "screenSize", filterValues: ["large"] },
+              {
+                filterName: "swLat",
+                filterValues: [data.swLat],
+              },
+              {
+                filterName: "swLng",
+                filterValues: [data.swLng],
+              },
+              { filterName: "tabId", filterValues: ["home_tab"] },
+              { filterName: "version", filterValues: ["1.8.3"] },
+            ],
+          },
+          decomposeCleanupEnabled: false,
+          decomposeFiltersEnabled: false,
+          feedMapDecoupleEnabled: true,
         },
         extensions: {
           persistedQuery: {
@@ -736,7 +1197,7 @@ const getSearch = (
 //     userId: req.userId,
 //     Listings: [],
 //   };
-//   let selectedUser = await Abnb_getUser(req.sourceId);
+//   let selectedUser = await Abnb_getHost(req.sourceId);
 
 //   let listings = await Abnb_getListings(
 //     selectedUser.user.id,
@@ -779,3 +1240,6 @@ const getSearch = (
 
 //   return response;
 // };
+
+//https://a0.muscache.com/pictures/e8fdac52-bf22-49a2-b73d-74d5ed6a3222.jpg
+//https://a0.muscache.com/pictures/e8fdac52-bf22-49a2-b73d-74d5ed6a3222.jpg
