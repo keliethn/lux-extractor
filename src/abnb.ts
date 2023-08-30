@@ -181,6 +181,7 @@ const abnbLookup = async (
 
   let inputMax = await page.getAttribute("#price_filter_max", "value");
 
+
   if (inputMin !== null && inputMax !== null) {
     let ranges = await priceRangeLookup(
       parseInt(inputMin),

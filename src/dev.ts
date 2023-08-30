@@ -118,26 +118,21 @@ const sendResponse = (extraction: ExtractionRes) => {
   console.log("Response sent");
 };
 
-const data: ExtractionReq = {
-  companyId: "f25f6df7-4e78-4a70-80aa-4d63aa745ce5",
-  userId: "c8f5f86f-f76a-4dac-9627-6423dfd2d74c",
-  element: ElementToExtract.PRICE_RANGE_LOOKUP,
-  source: ListingSource.AirBnB,
-  sourceId: "",
-  sourceCount: 0,
-  sourceData: [
-    {
-      key: "bbox",
-      value: JSON.stringify({
-        maxLat: 11.271960782,
-        maxLng: -85.842099697,
-        minLat: 11.237401857,
-        minLng: -85.88733247,
-      }),
-    }
-  ],
-  extractionId: "a54f291a-ab21-4a5d-a906-e3c29d3d742b",
-};
+// const data: ExtractionReq = {
+//   companyId: "f25f6df7-4e78-4a70-80aa-4d63aa745ce5",
+//   userId: "c8f5f86f-f76a-4dac-9627-6423dfd2d74c",
+//   element: ElementToExtract.PRICE_RANGE_LOOKUP,
+//   source: ListingSource.AirBnB,
+//   sourceId: "",
+//   sourceCount: 0,
+//   sourceData: [
+//     {
+//       key: "bbox",
+//       value: JSON.stringify({maxLat:11.386082997,maxLng:-86.027359206,minLat:11.380003711,minLng:-86.037916381}),
+//     }
+//   ],
+//   extractionId: "a54f291a-ab21-4a5d-a906-e3c29d3d742b",
+// };
 
 // const data: ExtractionReq = {
 //   companyId: "f25f6df7-4e78-4a70-80aa-4d63aa745ce5",
@@ -175,16 +170,16 @@ const data: ExtractionReq = {
 //   extractionId: "a54f291a-ab21-4a5d-a906-e3c29d3d742b",
 // };
 
-// const data: ExtractionReq = {
-//   companyId: "f25f6df7-4e78-4a70-80aa-4d63aa745ce5",
-//   userId: "c8f5f86f-f76a-4dac-9627-6423dfd2d74c",
-//   element: ElementToExtract.LISTING,
-//   source: ListingSource.AirBnB,
-//   sourceId: "14527436",
-//   sourceCount: 0,
-//   sourceData: [],
-//   extractionId: "a54f291a-ab21-4a5d-a906-e3c29d3d742b",
-// };
+const data: ExtractionReq = {
+  companyId: "f25f6df7-4e78-4a70-80aa-4d63aa745ce5",
+  userId: "c8f5f86f-f76a-4dac-9627-6423dfd2d74c",
+  element: ElementToExtract.LISTING,
+  source: ListingSource.AirBnB,
+  sourceId: "1910453",
+  sourceCount: 0,
+  sourceData: [],
+  extractionId: "a54f291a-ab21-4a5d-a906-e3c29d3d742b",
+};
 
 // const data: ExtractionReq = {
 //   companyId: "f25f6df7-4e78-4a70-80aa-4d63aa745ce5",

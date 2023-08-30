@@ -813,11 +813,15 @@ export const extractListingCount = async (
   const input = await page.$("#price_filter_max");
   if (input !== null) {
     await input.evaluate((element) => element.blur());
+   
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1200);
+
+   
     let btnListings = await page.textContent(
-      'a[data-testid="filter-modal-confirm"]'
+      'div[data-testid="modal-container"] a'
     );
+    console.log(btnListings);
     if (btnListings !== null) {
       listings = parseInt(btnListings.replace(/\D/g, ""));
     }
@@ -838,6 +842,7 @@ export const priceRangeLookup = async (
 
   while (lowerRangeFound === false) {
     let parentListings = await extractListingCount(minSeed, innerMax, page);
+    console.log(parentListings);
     if (parentListings <= 230) {
       ranges.push({ min: minSeed, max: innerMax, count: parentListings });
       // console.log(
@@ -902,17 +907,7 @@ export const saveRemoteImagesToS3V2 = async (
   gallery: string[]
 ) => {
   let response: ListingGalleryExtraction[] = [];
-  const imgDownloadInstance = axios.create({
-    proxy: {
-      protocol: "http",
-      host: "x.botproxy.net",
-      port: 8080,
-      auth: {
-        username: "pxu29513-0",
-        password: "bUQDwQFlDCnWGPqqVJF1",
-      },
-    },
-  });
+  const imgDownloadInstance = axios.create();
 
   for (const photo of gallery) {
     let imgArrayRaw = photo.split("?");
@@ -1001,7 +996,7 @@ export class HtmlLookupRepo {
     this._htmlWorkingElements = this._htmlFragment.querySelectorAll(
       `${element}`
     );
-  
+
     return this;
   }
 
@@ -1020,28 +1015,25 @@ export class HtmlLookupRepo {
         for (const key of predicateKeys) {
           if (key !== "innerText" && key !== "textContent") {
             let predicateCondition = predicate[key];
-           
+
             let attribute = element.getAttribute(key);
-            
+
             //console.log("attribute",attribute);
             if (typeof predicateCondition === "string") {
-
               if (attribute !== undefined) {
                 if (attribute === predicateCondition) {
                   matchCount += 1;
                 }
               }
             } else if (predicateCondition instanceof RegExp) {
-              
               if (attribute !== undefined) {
                 let match = attribute.match(predicateCondition);
-               
+
                 if (match !== null) {
                   matchCount += 1;
                 }
               }
             } else {
-            
               if (
                 this.evaluateLogicSearch(attribute, predicateCondition) === true
               ) {
@@ -1080,7 +1072,6 @@ export class HtmlLookupRepo {
           }
         }
 
-
         if (matchCount > 0) {
           this._selectedElements.push(element);
           //console.log(this._elementAttrib)
@@ -1103,7 +1094,7 @@ export class HtmlLookupRepo {
 
             let keyNm = this._elementAttrib;
             obj[keyNm] = attr;
-         
+
             //console.log(obj)
             this._selectedValues.push(obj);
           }
@@ -1262,10 +1253,9 @@ export class HtmlLookupRepo {
             totalMatches++;
           }
           break;
-      case "data":
-        
-        break;
-        }
+        case "data":
+          break;
+      }
     }
     if (totalConditionals === totalMatches) {
       response = true;
@@ -1299,13 +1289,13 @@ export const HtmlLookup = (
     if (item.singleValue !== undefined) {
       if (item.singleValue === true) {
         let single = lookup.getSingleValue();
-     
+
         if (item.returnType === "string") {
           let singleStringData = String(single[item.select]);
-      
+
           if (item.stringTransformer !== undefined) {
             const selectedText = singleStringData.match(item.stringTransformer);
-     
+
             if (selectedText) {
               response[key] = selectedText[0];
             } else {
@@ -1385,9 +1375,7 @@ export const HtmlLookup = (
           let r = "";
           let singleStringData = String(x[item.select]);
           if (item.stringTransformer !== undefined) {
-            const numericChars = singleStringData.match(
-              item.stringTransformer
-            );
+            const numericChars = singleStringData.match(item.stringTransformer);
             if (numericChars) {
               r = numericChars[0];
             } else {
@@ -1459,7 +1447,7 @@ interface lookupLogicSearchElement {
   lessThan?: number;
   lessOrEqualTo?: number;
   not?: number | string;
-  contains?:string
+  contains?: string;
 }
 
 type elementType =

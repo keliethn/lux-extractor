@@ -161,6 +161,9 @@ const abnbLookup = async (
   //Get max value
   let inputMax = await page.getAttribute("#price_filter_max", "value");
 
+  console.log(inputMin)
+
+  console.log(inputMax)
   if (inputMin !== null && inputMax !== null) {
     let rangesInAndOutScale: {
       min: number;
@@ -209,7 +212,7 @@ const abnbHost = async (
     source: req.source,
     sourceId: req.sourceId,
     userId: req.userId,
-    element: ElementToExtract.PRICE_RANGE_LOOKUP,
+    element: ElementToExtract.HOST,
     companyId: req.companyId,
   };
 
@@ -251,12 +254,15 @@ const abnbListing = async (
   };
   await page.waitForLoadState("networkidle");
   const button = page.locator('div[data-section-id="OVERVIEW_DEFAULT"] button');
+  console.log(button)
   await button.click();
   await page.waitForSelector("div[data-section-id='HOST_PROFILE_DEFAULT'] a");
 
   let source = await page.content();
+  console.log(source.length)
   let data = HtmlLookup(source, ListingTemplate);
 
+  console.log(data)
   response.details = {
     baths: data.baths,
     bedrooms: data.bedrooms,
@@ -791,9 +797,9 @@ const extractReducerListingCount = async (
     await input.evaluate((element) => element.blur());
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1200);
-    let btnListings = await page.textContent(
-      'a[data-testid="filter-modal-confirm"]'
-    );
+
+
+    let btnListings = await page.textContent('div[data-testid="modal-container"] footer a');
     if (btnListings !== null) {
       listings = parseInt(btnListings.replace(/\D/g, ""));
     }
